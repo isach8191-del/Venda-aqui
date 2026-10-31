@@ -1,7 +1,7 @@
 {
   "name": "Venda Aqui",
   "short_name": "Venda Aqui",
-  "description": "Rede social de compra e venda de produtos novos e usados",
+  "description": "compra e venda de produtos novos e usados",
   "start_url": "/Venda-aqui/",
   "scope": "/Venda-aqui/",
   "display": "standalone",
