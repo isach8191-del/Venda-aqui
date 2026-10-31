@@ -297,8 +297,8 @@ export const LoginScreen: React.FC = () => {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[11px] text-neutral-500">
-          VENDA AQUI · Compras e Vendas Diretas com Firebase
+        <p className="mt-5 text-center text-[11px] text-neutral-500 font-medium tracking-wide uppercase">
+          COMPRA AQUI E VENDA AQUI
         </p>
       </div>
     </div>
