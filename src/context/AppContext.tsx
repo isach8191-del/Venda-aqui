@@ -48,6 +48,22 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { DEFAULT_AVATAR, DEFAULT_COVER } from '../data/seedData';
+import { 
+  LanguageCode, 
+  TranslationSchema, 
+  CurrencyCode,
+  detectDeviceLanguage, 
+  getTranslation, 
+  getLanguageInfo, 
+  formatCurrency, 
+  formatDate, 
+  formatRelativeTime,
+  TRANSLATIONS,
+  SUPPORTED_LANGUAGES,
+  SUPPORTED_CURRENCIES,
+  POPULAR_COUNTRIES,
+  getCountryName
+} from '../i18n';
 
 interface AppContextType {
   user: User | null;
@@ -56,6 +72,24 @@ interface AppContextType {
   setTheme: (theme: ThemeChoice) => void;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
+  
+  // Multilingual & Region State
+  language: LanguageCode;
+  setLanguage: (lang: LanguageCode) => Promise<void>;
+  t: TranslationSchema;
+  isRTL: boolean;
+  preferredCountry: string;
+  setPreferredCountry: (country: string) => void;
+  preferredCurrency: CurrencyCode;
+  setPreferredCurrency: (curr: CurrencyCode) => void;
+  selectedCountryFilter: string;
+  setSelectedCountryFilter: (c: string) => void;
+  formatPrice: (amount: number, currency?: string) => string;
+  formatPostDate: (date: string | number | Date) => string;
+  formatRelativePostTime: (date: string | number | Date) => string;
+  translatePost: (post: Post) => Promise<{ title: string; description: string }>;
+  postTranslations: Record<string, { title: string; description: string; lang: LanguageCode }>;
+  
   posts: Post[];
   postsLoading: boolean;
   activeFilter: 'todos' | 'novo' | 'usado';
@@ -87,19 +121,21 @@ interface AppContextType {
   // Auth Actions
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string, name: string, username: string, location: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, name: string, username: string, location: string, country?: string) => Promise<void>;
   logout: () => Promise<void>;
 
   // Marketplace Actions
   createPost: (data: {
     title: string;
     price: number;
+    currency?: string;
     condition: ProductCondition;
     category: ProductCategory;
     description: string;
     imageFile?: File | null;
     imagePreviewUrl?: string;
     location: string;
+    country?: string;
   }) => Promise<void>;
   toggleLikePost: (postId: string) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
@@ -112,7 +148,10 @@ interface AppContextType {
     name: string;
     bio: string;
     location: string;
+    country?: string;
     phone?: string;
+    preferredLanguage?: LanguageCode;
+    preferredCurrency?: string;
     avatarFile?: File | null;
     coverFile?: File | null;
   }) => Promise<void>;
@@ -197,6 +236,146 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('venda_aqui_theme');
     return (saved as ThemeChoice) || 'dark';
   });
+
+  // Multilingual & Regional state
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    const saved = localStorage.getItem('venda_aqui_language');
+    if (saved && TRANSLATIONS[saved as LanguageCode]) {
+      return saved as LanguageCode;
+    }
+    return detectDeviceLanguage();
+  });
+
+  const [preferredCountry, setPreferredCountryState] = useState<string>(() => {
+    return localStorage.getItem('venda_aqui_country') || '';
+  });
+
+  const [preferredCurrency, setPreferredCurrencyState] = useState<CurrencyCode>(() => {
+    const saved = localStorage.getItem('venda_aqui_currency');
+    if (saved) return saved as CurrencyCode;
+    return getLanguageInfo(language).defaultCurrency;
+  });
+
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState<string>('');
+  const [postTranslations, setPostTranslations] = useState<Record<string, { title: string; description: string; lang: LanguageCode }>>({});
+
+  const t = getTranslation(language);
+  const isRTL = language === 'ar';
+
+  // Synchronize HTML attributes, direction (RTL for Arabic) and SEO title/description
+  useEffect(() => {
+    localStorage.setItem('venda_aqui_language', language);
+    const root = document.documentElement;
+    root.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
+    root.setAttribute('lang', language);
+
+    // Update document title & metadata dynamically
+    document.title = t.seo.title;
+
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', t.seo.description);
+    }
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) {
+      ogTitle.setAttribute('content', t.seo.title);
+    }
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) {
+      ogDesc.setAttribute('content', t.seo.description);
+    }
+  }, [language, isRTL, t]);
+
+  const setPreferredCountry = (countryCode: string) => {
+    setPreferredCountryState(countryCode);
+    localStorage.setItem('venda_aqui_country', countryCode);
+  };
+
+  const setPreferredCurrency = (curr: CurrencyCode) => {
+    setPreferredCurrencyState(curr);
+    localStorage.setItem('venda_aqui_currency', curr);
+  };
+
+  const setLanguage = async (newLang: LanguageCode) => {
+    setLanguageState(newLang);
+    localStorage.setItem('venda_aqui_language', newLang);
+    const info = getLanguageInfo(newLang);
+    if (info) {
+      setPreferredCurrencyState(info.defaultCurrency);
+      localStorage.setItem('venda_aqui_currency', info.defaultCurrency);
+    }
+
+    if (user) {
+      try {
+        await updateDoc(doc(db, 'users', user.id), {
+          preferredLanguage: newLang,
+          preferredCurrency: info?.defaultCurrency || 'MZN',
+        });
+        setUser((prev) => prev ? { ...prev, preferredLanguage: newLang, preferredCurrency: info?.defaultCurrency } : null);
+      } catch (err) {
+        console.warn('Could not persist language to user document:', err);
+      }
+    }
+  };
+
+  const formatPrice = (amount: number, currency?: string) => {
+    return formatCurrency(amount, currency || preferredCurrency, language);
+  };
+
+  const formatPostDate = (date: string | number | Date) => {
+    return formatDate(date, language);
+  };
+
+  const formatRelativePostTime = (date: string | number | Date) => {
+    return formatRelativeTime(date, language);
+  };
+
+  // Translation of listing via backend Gemini API
+  const translatePost = async (post: Post): Promise<{ title: string; description: string }> => {
+    const cacheKey = `${post.id}_${language}`;
+    if (postTranslations[cacheKey]) {
+      return postTranslations[cacheKey];
+    }
+
+    try {
+      const langInfo = getLanguageInfo(language);
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: post.title,
+          description: post.description,
+          targetLang: language,
+          targetLangName: langInfo.nativeName,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const result = {
+        title: data.translatedTitle || post.title,
+        description: data.translatedDescription || post.description,
+        lang: language,
+      };
+
+      setPostTranslations((prev) => ({
+        ...prev,
+        [cacheKey]: result,
+      }));
+
+      return result;
+    } catch (err) {
+      console.error('Translation error:', err);
+      return {
+        title: post.title,
+        description: post.description,
+        lang: language,
+      };
+    }
+  };
 
   // Auth & Profile State
   const [user, setUser] = useState<User | null>(null);
@@ -291,6 +470,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (snap.exists()) {
             const data = snap.data();
             const adminStatus = firebaseUser.email === 'isach8191@gmail.com';
+            if (data.preferredLanguage && TRANSLATIONS[data.preferredLanguage as LanguageCode]) {
+              setLanguageState(data.preferredLanguage as LanguageCode);
+              localStorage.setItem('venda_aqui_language', data.preferredLanguage);
+            }
+            if (data.country) {
+              setPreferredCountryState(data.country);
+              localStorage.setItem('venda_aqui_country', data.country);
+            }
+            if (data.preferredCurrency) {
+              setPreferredCurrencyState(data.preferredCurrency as CurrencyCode);
+              localStorage.setItem('venda_aqui_currency', data.preferredCurrency);
+            }
+
             setUser({
               id: firebaseUser.uid,
               name: data.name || firebaseUser.displayName || 'Utilizador',
@@ -308,7 +500,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               blockedUserIds: Array.isArray(data.blockedUserIds) ? data.blockedUserIds : [],
               bio: data.bio ?? 'Vendedor no VENDA AQUI.',
               location: data.location ?? 'Portugal / Brasil',
+              country: data.country ?? preferredCountry ?? 'MZ',
               phone: data.phone ?? '',
+              preferredLanguage: (data.preferredLanguage as LanguageCode) || language,
+              preferredCurrency: (data.preferredCurrency as CurrencyCode) || preferredCurrency,
               createdAt: data.createdAt ?? new Date().toISOString(),
             });
           } else {
@@ -331,8 +526,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isBlocked: false,
               blockedUserIds: [],
               bio: 'Vendedor no VENDA AQUI.',
-              location: 'Portugal / Brasil',
+              location: 'Moçambique / Portugal',
+              country: preferredCountry || 'MZ',
               phone: '',
+              preferredLanguage: language,
+              preferredCurrency: preferredCurrency,
               createdAt: new Date().toISOString(),
             };
             await setDoc(userDocRef, newUser);
@@ -550,26 +748,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pass: string, 
     name: string, 
     username: string, 
-    location: string
+    location: string,
+    country?: string
   ) => {
     try {
       // 1. Validation: Unique username without spaces
       const cleanUsername = username.trim().toLowerCase();
       if (!/^[a-zA-Z0-9_]{3,30}$/.test(cleanUsername)) {
-        throw new Error('O nome de utilizador só pode conter letras, números e sublinhados (_), sem espaços (3 a 30 caracteres).');
+        throw new Error(t.auth.errors.usernameInvalid);
       }
 
       // Check username uniqueness in Firestore
       const userQuery = query(collection(db, 'users'), where('username', '==', cleanUsername));
       const uSnap = await getDocs(userQuery);
       if (!uSnap.empty) {
-        throw new Error(`O nome de utilizador @${cleanUsername} já está registado. Por favor escolha outro.`);
+        throw new Error(t.auth.errors.usernameTaken);
       }
 
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(res.user, { displayName: name });
 
       const adminStatus = email === 'isach8191@gmail.com';
+      const userCountry = country || preferredCountry || 'MZ';
       const newUser: User = {
         id: res.user.uid,
         name,
@@ -586,21 +786,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isBlocked: false,
         blockedUserIds: [],
         bio: 'Vendedor no VENDA AQUI.',
-        location: location || 'Portugal / Brasil',
+        location: location || 'Moçambique',
+        country: userCountry,
+        preferredLanguage: language,
+        preferredCurrency: preferredCurrency,
         phone: '',
         createdAt: new Date().toISOString(),
       };
 
       await setDoc(doc(db, 'users', res.user.uid), newUser);
       setUser(newUser);
-      showToast('Conta criada com sucesso no VENDA AQUI!');
+      showToast('Conta criada com sucesso!');
     } catch (error: any) {
       console.error('Sign up error:', error);
       let msg = error.message || 'Erro ao registar conta';
       if (error.code === 'auth/email-already-in-use') {
-        msg = 'Este e-mail já está em uso.';
+        msg = t.auth.errors.emailInUse;
       } else if (error.code === 'auth/weak-password') {
-        msg = 'A senha deve conter pelo menos 6 caracteres.';
+        msg = t.auth.errors.weakPassword;
       }
       showToast(msg);
       throw new Error(msg);
@@ -669,7 +872,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     name: string;
     bio: string;
     location: string;
+    country?: string;
     phone?: string;
+    preferredLanguage?: LanguageCode;
+    preferredCurrency?: string;
     avatarFile?: File | null;
     coverFile?: File | null;
   }) => {
@@ -686,11 +892,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newCover = await uploadImageFile(data.coverFile, `users/${user.id}/covers`);
     }
 
-    const updatedData = {
+    const updatedData: Partial<User> & { updatedAt: string } = {
       name: data.name,
       bio: data.bio,
       location: data.location,
+      country: data.country || user.country,
       phone: data.phone || '',
+      preferredLanguage: data.preferredLanguage || user.preferredLanguage || language,
+      preferredCurrency: data.preferredCurrency || user.preferredCurrency || preferredCurrency,
       avatar: newAvatar,
       coverPhoto: newCover,
       updatedAt: new Date().toISOString(),
@@ -700,6 +909,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(doc(db, 'users', user.id), updatedData);
       const updatedUser = { ...user, ...updatedData };
       setUser(updatedUser);
+      if (data.preferredLanguage) {
+        setLanguageState(data.preferredLanguage);
+      }
+      if (data.country) {
+        setPreferredCountryState(data.country);
+      }
+      if (data.preferredCurrency) {
+        setPreferredCurrencyState(data.preferredCurrency as CurrencyCode);
+      }
       if (selectedProfileUser && selectedProfileUser.id === user.id) {
         setSelectedProfileUser(updatedUser);
       }
@@ -714,12 +932,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createPost = async (data: {
     title: string;
     price: number;
+    currency?: string;
     condition: ProductCondition;
     category: ProductCategory;
     description: string;
     imageFile?: File | null;
     imagePreviewUrl?: string;
     location: string;
+    country?: string;
   }) => {
     if (!user) return;
 
@@ -756,6 +976,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       imageUrl = await uploadImageFile(data.imageFile, `posts/${user.id}`);
     }
 
+    const postCurrency = data.currency || preferredCurrency || 'MZN';
+    const postCountry = data.country || user.country || preferredCountry || 'MZ';
+
     const newPostData = {
       sellerId: user.id,
       sellerName: user.name,
@@ -765,7 +988,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sellerVerified: user.verified,
       title: data.title,
       price: data.price,
-      currency: 'R$',
+      currency: postCurrency,
+      country: postCountry,
       condition: data.condition,
       category: data.category,
       description: data.description,
@@ -1381,6 +1605,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTheme,
         activeTab,
         setActiveTab,
+        language,
+        setLanguage,
+        t,
+        isRTL,
+        preferredCountry,
+        setPreferredCountry,
+        preferredCurrency,
+        setPreferredCurrency,
+        selectedCountryFilter,
+        setSelectedCountryFilter,
+        formatPrice,
+        formatPostDate,
+        formatRelativePostTime,
+        translatePost,
+        postTranslations,
         posts,
         postsLoading,
         activeFilter,

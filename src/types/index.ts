@@ -1,3 +1,5 @@
+import { LanguageCode } from '../i18n/types';
+
 export type ProductCondition = 'novo' | 'usado';
 
 export type ProductCategory = 
@@ -26,7 +28,10 @@ export interface User {
   blockedUserIds?: string[];
   bio?: string;
   location: string;
+  country?: string;
   phone?: string;
+  preferredLanguage?: LanguageCode;
+  preferredCurrency?: string;
   createdAt?: string;
 }
 
@@ -71,6 +76,7 @@ export interface Shop {
   ownerEmail?: string;
   name: string;
   shopType: ShopType;
+  country?: string;
   city: string;
   address: string; // bairro / endereço
   phone: string; // telefone / WhatsApp
@@ -83,6 +89,7 @@ export interface Shop {
   verified: boolean; // selo de verificada gerido só pelo administrador
   rating: number; // 1 a 5 estrelas
   reviewCount: number;
+  currency?: string;
   createdAt: string;
 }
 
@@ -140,6 +147,7 @@ export interface Post {
   isLiked?: boolean;
   comments: Comment[];
   commentsCount?: number;
+  country?: string;
   location: string;
   createdAt: string;
   isSaved?: boolean;

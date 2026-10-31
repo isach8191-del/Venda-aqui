@@ -1,25 +1,34 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCondition, ProductCategory } from '../types';
-import { PRODUCT_CATEGORIES } from './FeedTab';
 import { 
   X, 
   Upload, 
-  Sparkles, 
-  RefreshCw, 
   Camera, 
   AlertCircle 
 } from 'lucide-react';
+import { SUPPORTED_CURRENCIES, POPULAR_COUNTRIES } from '../i18n';
 
 export const CreatePostModal: React.FC = () => {
-  const { isCreatePostModalOpen, setIsCreatePostModalOpen, createPost, user } = useApp();
+  const { 
+    isCreatePostModalOpen, 
+    setIsCreatePostModalOpen, 
+    createPost, 
+    user,
+    preferredCurrency,
+    preferredCountry,
+    language,
+    t 
+  } = useApp();
 
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [currency, setCurrency] = useState<string>(preferredCurrency || 'MZN');
+  const [country, setCountry] = useState<string>(user?.country || preferredCountry || 'MZ');
   const [condition, setCondition] = useState<ProductCondition>('novo');
   const [category, setCategory] = useState<ProductCategory>('Eletrônicos & Tech');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(user?.location || 'Lisboa, Portugal');
+  const [location, setLocation] = useState(user?.location || 'Maputo');
   
   // Real image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -29,11 +38,20 @@ export const CreatePostModal: React.FC = () => {
 
   if (!isCreatePostModalOpen) return null;
 
+  const categoriesOptions: { id: ProductCategory; label: string }[] = [
+    { id: 'Eletrônicos & Tech', label: t.categories.electronics },
+    { id: 'Moda & Calçados', label: t.categories.fashion },
+    { id: 'Música & Áudio', label: t.categories.music },
+    { id: 'Casa & Design', label: t.categories.home },
+    { id: 'Fotografia', label: t.categories.photography },
+    { id: 'Outros', label: t.categories.other },
+  ];
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 8 * 1024 * 1024) {
-        setError('A fotografia do anúncio deve ter menos de 8MB');
+      if (file.size > 5 * 1024 * 1024) {
+        setError('A fotografia do anúncio deve ter menos de 5MB');
         return;
       }
       setImageFile(file);
@@ -45,20 +63,20 @@ export const CreatePostModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError('Por favor informe o título do produto');
+      setError(t.createPost.postTitleLabel);
       return;
     }
     const numPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
     if (!numPrice || numPrice <= 0) {
-      setError('Por favor informe um preço válido');
+      setError(t.createPost.priceLabel);
       return;
     }
     if (!description.trim()) {
-      setError('Descreva o estado e características do produto');
+      setError(t.createPost.descriptionLabel);
       return;
     }
     if (!imageFile && !imagePreview) {
-      setError('Por favor carregue pelo menos uma fotografia do produto');
+      setError(t.createPost.photosLabel);
       return;
     }
 
@@ -69,6 +87,8 @@ export const CreatePostModal: React.FC = () => {
       await createPost({
         title: title.trim(),
         price: numPrice,
+        currency,
+        country,
         condition,
         category,
         description: description.trim(),
@@ -83,6 +103,7 @@ export const CreatePostModal: React.FC = () => {
       setDescription('');
       setImageFile(null);
       setImagePreview(null);
+      setIsCreatePostModalOpen(false);
     } catch (err: any) {
       setError(err?.message || 'Erro ao publicar anúncio.');
     } finally {
@@ -98,144 +119,37 @@ export const CreatePostModal: React.FC = () => {
       >
         {/* Header */}
         <div className="p-3.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-black text-[10px] rounded-xs">
-              VA
-            </div>
-            <h2 className="font-bold text-xs sm:text-sm text-black dark:text-white uppercase tracking-tight">
-              Novo Anúncio no VENDA AQUI
-            </h2>
-          </div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-black dark:text-white">
+            {t.createPost.title}
+          </h2>
           <button
             onClick={() => setIsCreatePostModalOpen(false)}
-            className="p-1 text-neutral-400 hover:text-black dark:hover:text-white transition-colors"
+            className="p-1 text-neutral-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 text-xs">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3.5 overflow-y-auto">
           {error && (
-            <div className="p-2.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs text-black dark:text-white flex items-center gap-2 rounded-sm">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+            <div className="p-2.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-400 dark:border-neutral-700 text-xs text-black dark:text-white flex items-start gap-2 rounded-sm">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* 1. Condição: NOVO ou USADO */}
+          {/* Photo Upload Area */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-              Condição do Produto *
+            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
+              {t.createPost.photosLabel}
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setCondition('novo')}
-                className={`py-2 px-3 text-xs font-semibold rounded-sm border transition-all flex items-center justify-center gap-1.5 ${
-                  condition === 'novo'
-                    ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Produto Novo</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCondition('usado')}
-                className={`py-2 px-3 text-xs font-semibold rounded-sm border transition-all flex items-center justify-center gap-1.5 ${
-                  condition === 'usado'
-                    ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
-                }`}
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Produto Usado</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 2. Categoria do Produto */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-              Categoria *
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ProductCategory)}
-              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
-            >
-              {PRODUCT_CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 3. Título */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-              Título do Anúncio *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: iPhone 13 Pro 128GB Grafite com caixa"
-              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
-            />
-          </div>
-
-          {/* 4. Preço e Localização */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-                Preço (R$) *
-              </label>
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400 font-mono">
-                  R$
-                </span>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0,00"
-                  step="any"
-                  className="w-full pl-8 pr-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-                Cidade / Estado
-              </label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Ex: São Paulo, SP ou Lisboa"
-                className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
-              />
-            </div>
-          </div>
-
-          {/* 5. Fotografia Real do Produto */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-              Fotografia do Produto *
-            </label>
-
-            <div className="space-y-2">
+            <div className="border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm p-4 text-center bg-neutral-50 dark:bg-neutral-900/50 transition-colors">
               {imagePreview ? (
-                <div className="relative aspect-[16/9] w-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-sm overflow-hidden flex items-center justify-center">
+                <div className="relative aspect-video max-h-48 mx-auto overflow-hidden rounded-sm border border-neutral-200 dark:border-neutral-800">
                   <img
                     src={imagePreview}
-                    alt="Pré-visualização do produto"
+                    alt="Preview"
                     className="w-full h-full object-cover"
                   />
                   <button
@@ -244,56 +158,195 @@ export const CreatePostModal: React.FC = () => {
                       setImageFile(null);
                       setImagePreview(null);
                     }}
-                    className="absolute top-2 right-2 p-1 bg-black/80 hover:bg-black text-white rounded-sm text-xs"
+                    className="absolute top-2 right-2 p-1 bg-black/80 text-white rounded-full hover:bg-black transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              ) : null}
-
-              <label className="flex items-center justify-center gap-2 py-3 px-3 border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer transition-colors bg-neutral-50/50 dark:bg-neutral-900/50">
-                <Camera className="w-4 h-4 text-neutral-500" />
-                <span>Tirar Foto ou Escolher da Galeria</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
+              ) : (
+                <label className="flex flex-col items-center justify-center cursor-pointer py-2">
+                  <Camera className="w-6 h-6 text-neutral-400 mb-1.5" />
+                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Carregar fotografia do telemóvel ou câmara
+                  </span>
+                  <span className="text-[10px] text-neutral-400 mt-1">
+                    {t.createPost.photosHint}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
           </div>
 
-          {/* 6. Descrição */}
+          {/* Title */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
-              Descrição Detalhada *
+            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+              {t.createPost.postTitleLabel}
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              placeholder={t.createPost.postTitlePlaceholder}
+              className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+            />
+          </div>
+
+          {/* Price & Currency Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.priceLabel}
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+                placeholder="0.00"
+                className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.currencyLabel}
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
+              >
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Condition & Category */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.conditionLabel}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCondition('novo')}
+                  className={`py-1.5 text-xs font-semibold rounded-sm border text-center transition-colors cursor-pointer ${
+                    condition === 'novo'
+                      ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-bold'
+                      : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:border-black dark:hover:border-white'
+                  }`}
+                >
+                  {t.post.conditionNew}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCondition('usado')}
+                  className={`py-1.5 text-xs font-semibold rounded-sm border text-center transition-colors cursor-pointer ${
+                    condition === 'usado'
+                      ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-bold'
+                      : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:border-black dark:hover:border-white'
+                  }`}
+                >
+                  {t.post.conditionUsed}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.categoryLabel}
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ProductCategory)}
+                className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
+              >
+                {categoriesOptions.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Country & Location */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.countryLabel}
+              </label>
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
+              >
+                {POPULAR_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name[language] || c.name['en'] || c.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                {t.createPost.locationLabel}
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+                placeholder={t.createPost.locationPlaceholder}
+                className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+              {t.createPost.descriptionLabel}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Descreva detalhes, acessórios incluídos, tempo de uso e como prefere fazer a entrega..."
-              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white resize-none"
+              required
+              placeholder={t.createPost.descriptionPlaceholder}
+              className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white leading-relaxed resize-none"
             />
           </div>
 
-          {/* Bottom Actions: Classic, small sober buttons */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
+          {/* Submit */}
+          <div className="pt-2 border-t border-neutral-100 dark:border-neutral-900 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setIsCreatePostModalOpen(false)}
-              className="py-1.5 px-3 rounded-sm border border-neutral-300 dark:border-neutral-700 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white transition-colors"
+              className="py-1.5 px-3 rounded-sm border border-neutral-300 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Cancelar
+              {t.common.cancel}
             </button>
-
             <button
               type="submit"
               disabled={loading}
-              className="py-1.5 px-4 rounded-sm bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="py-1.5 px-4 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
-              {loading ? 'A publicar...' : 'Publicar Anúncio'}
+              <span>{loading ? t.createPost.posting : t.createPost.submitButton}</span>
             </button>
           </div>
         </form>

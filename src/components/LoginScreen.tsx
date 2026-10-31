@@ -1,9 +1,31 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Lock, Mail, User as UserIcon, MapPin, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { 
+  Lock, 
+  Mail, 
+  User as UserIcon, 
+  MapPin, 
+  ArrowRight, 
+  AlertCircle, 
+  Globe, 
+  Check 
+} from 'lucide-react';
+import { SUPPORTED_LANGUAGES, POPULAR_COUNTRIES, LanguageCode } from '../i18n';
 
 export const LoginScreen: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, setIsTermsModalOpen, setTermsModalMode } = useApp();
+  const { 
+    signInWithGoogle, 
+    signInWithEmail, 
+    signUpWithEmail, 
+    setIsTermsModalOpen, 
+    setTermsModalMode,
+    language,
+    setLanguage,
+    preferredCountry,
+    setPreferredCountry,
+    t
+  } = useApp();
+
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +35,8 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [location, setLocation] = useState('Lisboa, Portugal');
+  const [location, setLocation] = useState('Maputo');
+  const [country, setCountry] = useState(preferredCountry || 'MZ');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -22,7 +45,7 @@ export const LoginScreen: React.FC = () => {
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      setError(err?.message || 'Falha ao autenticar com o Google.');
+      setError(err?.message || t.auth.errors.general);
     } finally {
       setLoading(false);
     }
@@ -36,29 +59,29 @@ export const LoginScreen: React.FC = () => {
     try {
       if (isRegister) {
         if (!name.trim() || !username.trim()) {
-          setError('Por favor preencha o seu nome e nome de utilizador.');
+          setError(t.auth.errors.requiredFields);
           setLoading(false);
           return;
         }
 
         if (!/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
-          setError('O nome de utilizador não pode conter espaços nem caracteres especiais (apenas letras, números e _).');
+          setError(t.auth.errors.usernameInvalid);
           setLoading(false);
           return;
         }
 
         if (!acceptedTerms) {
-          setError('Deve aceitar os Termos de Utilização e a Política de Privacidade para criar conta.');
+          setError(t.auth.errors.termsRequired);
           setLoading(false);
           return;
         }
 
-        await signUpWithEmail(email, password, name.trim(), username.trim(), location.trim());
+        await signUpWithEmail(email, password, name.trim(), username.trim(), location.trim(), country);
       } else {
         await signInWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err?.message || 'Erro na autenticação. Verifique os dados inseridos.');
+      setError(err?.message || t.auth.errors.general);
     } finally {
       setLoading(false);
     }
@@ -68,22 +91,42 @@ export const LoginScreen: React.FC = () => {
     <div className="min-h-screen bg-neutral-100 dark:bg-black text-neutral-900 dark:text-neutral-100 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-sm shadow-md overflow-hidden p-6 sm:p-7">
         
+        {/* Language Selector Header */}
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-medium">
+            <Globe className="w-3.5 h-3.5" />
+            <span>{t.auth.languageSelectorLabel}:</span>
+          </div>
+
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+            className="text-xs bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-sm py-1 px-2 text-black dark:text-white font-medium focus:outline-none cursor-pointer"
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.flag} {lang.nativeName}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Brand Lockup */}
         <div className="text-center mb-6">
           <div className="w-9 h-9 mx-auto border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-black text-sm flex items-center justify-center rounded-sm mb-2.5">
             VA
           </div>
           <h1 className="text-lg font-extrabold uppercase tracking-tight text-black dark:text-white">
-            VENDA AQUI
+            {t.common.appName}
           </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Rede Social de Compra e Venda
+            {t.auth.subtitle}
           </p>
         </div>
 
         {/* Notice: Account required */}
         <div className="mb-5 p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-sm text-[11px] text-neutral-600 dark:text-neutral-400 text-center leading-relaxed">
-          Inicie sessão ou crie uma conta para aceder aos anúncios reais, mensagens e vendas.
+          {t.auth.subtitle}
         </div>
 
         {error && (
@@ -98,7 +141,7 @@ export const LoginScreen: React.FC = () => {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full mb-4 py-2 px-3 border border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 rounded-sm text-xs font-semibold flex items-center justify-center gap-2.5 transition-colors disabled:opacity-50"
+          className="w-full mb-4 py-2 px-3 border border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 rounded-sm text-xs font-semibold flex items-center justify-center gap-2.5 transition-colors disabled:opacity-50 cursor-pointer"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -118,7 +161,7 @@ export const LoginScreen: React.FC = () => {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>Continuar com Google</span>
+          <span>{t.auth.googleButton}</span>
         </button>
 
         <div className="relative my-4">
@@ -127,7 +170,7 @@ export const LoginScreen: React.FC = () => {
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
             <span className="bg-white dark:bg-neutral-950 px-2 text-neutral-400">
-              ou por e-mail
+              {t.common.or}
             </span>
           </div>
         </div>
@@ -143,7 +186,7 @@ export const LoginScreen: React.FC = () => {
                 : 'text-neutral-500 hover:text-black dark:hover:text-white'
             }`}
           >
-            Entrar
+            {t.auth.loginTab}
           </button>
           <button
             type="button"
@@ -154,7 +197,7 @@ export const LoginScreen: React.FC = () => {
                 : 'text-neutral-500 hover:text-black dark:hover:text-white'
             }`}
           >
-            Criar Conta
+            {t.auth.registerTab}
           </button>
         </div>
 
@@ -164,7 +207,7 @@ export const LoginScreen: React.FC = () => {
             <>
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  Nome Completo
+                  {t.auth.nameLabel}
                 </label>
                 <div className="relative">
                   <UserIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -173,7 +216,7 @@ export const LoginScreen: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    placeholder="João Silva"
+                    placeholder={t.auth.namePlaceholder}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                   />
                 </div>
@@ -181,21 +224,41 @@ export const LoginScreen: React.FC = () => {
 
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  Nome de Utilizador (@)
+                  {t.auth.usernameLabel}
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  placeholder="joaosilva"
+                  placeholder={t.auth.usernamePlaceholder}
                   className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  Cidade
+                  {t.auth.countryLabel}
+                </label>
+                <select
+                  value={country}
+                  onChange={(e) => {
+                    setCountry(e.target.value);
+                    setPreferredCountry(e.target.value);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
+                >
+                  {POPULAR_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name[language] || c.name['en'] || c.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                  {t.auth.locationLabel}
                 </label>
                 <div className="relative">
                   <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -203,7 +266,7 @@ export const LoginScreen: React.FC = () => {
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Lisboa, Porto, São Paulo..."
+                    placeholder={t.auth.locationPlaceholder}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                   />
                 </div>
@@ -213,7 +276,7 @@ export const LoginScreen: React.FC = () => {
 
           <div>
             <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-              E-mail
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -222,7 +285,7 @@ export const LoginScreen: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="exemplo@email.com"
+                placeholder={t.auth.emailPlaceholder}
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
               />
             </div>
@@ -230,7 +293,7 @@ export const LoginScreen: React.FC = () => {
 
           <div>
             <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-              Palavra-passe
+              {t.auth.passwordLabel}
             </label>
             <div className="relative">
               <Lock className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -239,7 +302,7 @@ export const LoginScreen: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
               />
             </div>
@@ -256,7 +319,7 @@ export const LoginScreen: React.FC = () => {
                   className="mt-0.5 rounded-xs"
                 />
                 <span className="leading-tight">
-                  Li e aceito os{' '}
+                  {t.auth.termsAgreement}{' '}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -266,19 +329,19 @@ export const LoginScreen: React.FC = () => {
                     }}
                     className="text-black dark:text-white font-bold underline hover:opacity-80"
                   >
-                    Termos de Utilização
+                    {t.auth.termsLink}
                   </button>{' '}
-                  e a{' '}
+                  {t.common.or}{' '}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
-                      setTermsModalMode('terms');
+                      setTermsModalMode('about');
                       setIsTermsModalOpen(true);
                     }}
                     className="text-black dark:text-white font-bold underline hover:opacity-80"
                   >
-                    Política de Privacidade
+                    {t.auth.privacyLink}
                   </button>
                   .
                 </span>
@@ -290,15 +353,15 @@ export const LoginScreen: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 disabled:opacity-50"
+            className="w-full mt-2 py-2 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
           >
-            <span>{isRegister ? 'Criar Conta e Aceder' : 'Entrar'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>{isRegister ? t.auth.createAccountButton : t.auth.enterButton}</span>
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </button>
         </form>
 
         <p className="mt-5 text-center text-[11px] text-neutral-500 font-medium tracking-wide uppercase">
-          COMPRA AQUI E VENDA AQUI
+          {t.auth.footerSlogan}
         </p>
       </div>
     </div>
