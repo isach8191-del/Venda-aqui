@@ -20,10 +20,86 @@ export interface User {
   totalSales: number;
   reviewCount?: number;
   verified: boolean;
+  role?: 'user' | 'admin';
+  isAdmin?: boolean;
+  isBlocked?: boolean;
+  blockedUserIds?: string[];
   bio?: string;
   location: string;
   phone?: string;
   createdAt?: string;
+}
+
+export type ShopType = 
+  | 'Roupa e calçados'
+  | 'Eletrónicos e telemóveis'
+  | 'Supermercado e mercearia'
+  | 'Material de construção'
+  | 'Cosméticos e beleza'
+  | 'Móveis e casa'
+  | 'Peças e oficinas'
+  | 'Alimentação e restaurantes'
+  | 'Serviços (reparações, transporte, etc.)'
+  | 'Outros';
+
+export interface ShopProduct {
+  id: string;
+  shopId: string;
+  title: string;
+  description?: string;
+  price: number;
+  image: string;
+  status: 'disponivel' | 'esgotado';
+  createdAt: string;
+}
+
+export interface ShopReview {
+  id: string;
+  shopId: string;
+  userId: string;
+  userName: string;
+  userUsername?: string;
+  userAvatar?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface Shop {
+  id: string;
+  ownerId: string;
+  ownerEmail?: string;
+  name: string;
+  shopType: ShopType;
+  city: string;
+  address: string; // bairro / endereço
+  phone: string; // telefone / WhatsApp
+  whatsapp?: string;
+  openingHours: string; // horário de funcionamento
+  hasDelivery: boolean; // se faz entregas (sim/não)
+  logo: string;
+  coverPhoto: string;
+  description: string;
+  verified: boolean; // selo de verificada gerido só pelo administrador
+  rating: number; // 1 a 5 estrelas
+  reviewCount: number;
+  createdAt: string;
+}
+
+export type ReportReason = 'golpe' | 'conteudo_ofensivo' | 'produto_proibido' | 'outro';
+
+export interface Report {
+  id: string;
+  reporterId: string;
+  reporterName: string;
+  targetType: 'post' | 'user' | 'shop';
+  targetId: string;
+  targetTitle?: string;
+  targetUserId?: string;
+  reason: ReportReason;
+  description: string;
+  status: 'pendente' | 'resolvido' | 'descartado';
+  createdAt: string;
 }
 
 export interface Review {
@@ -102,7 +178,7 @@ export interface Conversation {
 export interface NotificationItem {
   id: string;
   userId: string;
-  type: 'like' | 'comment' | 'message' | 'offer' | 'sale';
+  type: 'like' | 'comment' | 'message' | 'offer' | 'sale' | 'review';
   title: string;
   description: string;
   time: string;
@@ -113,4 +189,4 @@ export interface NotificationItem {
 
 export type ThemeChoice = 'dark' | 'light' | 'pure_black';
 
-export type ActiveTab = 'feed' | 'messages' | 'notifications' | 'settings' | 'profile';
+export type ActiveTab = 'feed' | 'shops' | 'messages' | 'notifications' | 'settings' | 'profile' | 'shop_detail';

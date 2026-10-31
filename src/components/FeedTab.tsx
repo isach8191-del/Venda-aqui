@@ -106,38 +106,6 @@ export const FeedTab: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
 
-      {/* Top Space to Publish / Composer card */}
-      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-sm p-3 shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => user && openUserProfile(user)}
-            className="shrink-0 focus:outline-none"
-            title="Ver meu perfil estilo Facebook"
-          >
-            <img
-              src={user?.avatar}
-              alt="Meu avatar"
-              className="w-8 h-8 rounded-full object-cover border border-neutral-300 dark:border-neutral-700"
-            />
-          </button>
-
-          <button
-            onClick={() => setIsCreatePostModalOpen(true)}
-            className="flex-1 text-left px-3 py-1.5 rounded-sm border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400 text-xs transition-colors truncate"
-          >
-            O que você quer vender hoje? Clique para publicar...
-          </button>
-
-          <button
-            onClick={() => setIsCreatePostModalOpen(true)}
-            className="py-1.5 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-[11px] font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1 shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Publicar</span>
-          </button>
-        </div>
-      </div>
-
       {/* Search & Filter Section */}
       <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-sm p-3 space-y-3 shadow-2xs">
         

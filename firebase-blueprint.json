@@ -7,7 +7,7 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string", "maxLength": 100 },
-        "username": { "type": "string", "maxLength": 50 },
+        "username": { "type": "string", "maxLength": 50, "pattern": "^[a-zA-Z0-9_]+$" },
         "email": { "type": "string", "maxLength": 100 },
         "avatar": { "type": "string", "maxLength": 500000 },
         "coverPhoto": { "type": "string", "maxLength": 500000 },
@@ -18,29 +18,14 @@
         "totalSales": { "type": "number" },
         "reviewCount": { "type": "number" },
         "verified": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "isAdmin": { "type": "boolean" },
+        "isBlocked": { "type": "boolean" },
+        "blockedUserIds": { "type": "array" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "name", "username", "email"]
-    },
-    "Review": {
-      "title": "Review",
-      "description": "Buyer rating and review for a seller after transaction",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "sellerId": { "type": "string" },
-        "buyerId": { "type": "string" },
-        "buyerName": { "type": "string", "maxLength": 100 },
-        "buyerUsername": { "type": "string", "maxLength": 50 },
-        "buyerAvatar": { "type": "string", "maxLength": 500000 },
-        "rating": { "type": "number" },
-        "comment": { "type": "string", "maxLength": 500 },
-        "productId": { "type": "string" },
-        "productTitle": { "type": "string", "maxLength": 150 },
-        "createdAt": { "type": "string" }
-      },
-      "required": ["id", "sellerId", "buyerId", "rating", "comment"]
     },
     "Post": {
       "title": "Post",
@@ -70,6 +55,44 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "sellerId", "title", "price", "condition", "description"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Report submitted by users against suspicious listings or users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reporterName": { "type": "string", "maxLength": 100 },
+        "targetType": { "type": "string", "enum": ["post", "user"] },
+        "targetId": { "type": "string" },
+        "targetTitle": { "type": "string", "maxLength": 150 },
+        "targetUserId": { "type": "string" },
+        "reason": { "type": "string", "enum": ["golpe", "conteudo_ofensivo", "produto_proibido", "outro"] },
+        "description": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["pendente", "resolvido", "descartado"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "reporterId", "targetType", "targetId", "reason"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Buyer rating and review for a seller after transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string", "maxLength": 100 },
+        "buyerUsername": { "type": "string", "maxLength": 50 },
+        "buyerAvatar": { "type": "string", "maxLength": 500000 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 500 },
+        "productId": { "type": "string" },
+        "productTitle": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "buyerId", "rating", "comment"]
     },
     "Comment": {
       "title": "Comment",
@@ -134,6 +157,80 @@
         "userAvatar": { "type": "string", "maxLength": 500000 }
       },
       "required": ["id", "userId", "type", "title"]
+    },
+    "Shop": {
+      "title": "Shop",
+      "description": "Store or business profile in VENDA AQUI (shops, lojas, mercearias, barracas, prestadores de serviços)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "shopType": { 
+          "type": "string", 
+          "enum": [
+            "Roupa e calçados",
+            "Eletrónicos e telemóveis",
+            "Supermercado e mercearia",
+            "Material de construção",
+            "Cosméticos e beleza",
+            "Móveis e casa",
+            "Peças e oficinas",
+            "Alimentação e restaurantes",
+            "Serviços (reparações, transporte, etc.)",
+            "Outros"
+          ] 
+        },
+        "city": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "whatsapp": { "type": "string", "maxLength": 40 },
+        "openingHours": { "type": "string", "maxLength": 100 },
+        "hasDelivery": { "type": "boolean" },
+        "logo": { "type": "string", "maxLength": 500000 },
+        "coverPhoto": { "type": "string", "maxLength": 500000 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "verified": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "ownerId", "name", "shopType", "city", "phone"]
+    },
+    "ShopProduct": {
+      "title": "ShopProduct",
+      "description": "Product item in a shop catalog with availability state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "shopId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "price": { "type": "number" },
+        "image": { "type": "string", "maxLength": 500000 },
+        "status": { "type": "string", "enum": ["disponivel", "esgotado"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "shopId", "title", "price", "status"]
+    },
+    "ShopReview": {
+      "title": "ShopReview",
+      "description": "Customer rating and review for a shop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "shopId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userUsername": { "type": "string", "maxLength": 50 },
+        "userAvatar": { "type": "string", "maxLength": 500000 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "shopId", "userId", "rating", "comment"]
     }
   },
   "firestore": {
@@ -152,6 +249,22 @@
     "/posts/{postId}/comments/{commentId}": {
       "schema": "Comment",
       "description": "Social comments and questions on listings"
+    },
+    "/shops/{shopId}": {
+      "schema": "Shop",
+      "description": "Shop and business profiles with delivery, contact, hours"
+    },
+    "/shops/{shopId}/products/{productId}": {
+      "schema": "ShopProduct",
+      "description": "Catalog of products belonging to a shop"
+    },
+    "/shops/{shopId}/reviews/{reviewId}": {
+      "schema": "ShopReview",
+      "description": "Customer reviews and 1-5 star ratings for a shop"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Reports submitted by users against suspicious content"
     },
     "/conversations/{conversationId}": {
       "schema": "Conversation",

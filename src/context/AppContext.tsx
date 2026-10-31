@@ -8,7 +8,13 @@ import {
   ThemeChoice, 
   ActiveTab, 
   ProductCondition, 
-  ProductCategory 
+  ProductCategory,
+  Shop,
+  ShopType,
+  ShopProduct,
+  ShopReview,
+  Report,
+  ReportReason
 } from '../types';
 import { 
   auth, 
@@ -115,6 +121,72 @@ interface AppContextType {
   addReviewToSeller: (sellerId: string, rating: number, comment: string, productId?: string, productTitle?: string) => Promise<void>;
   markPostAsCompleted: (postId: string) => Promise<void>;
   fetchSellerReviews: (sellerId: string) => Promise<any[]>;
+
+  // Admin & Reports & Blocking
+  isAdmin: boolean;
+  isAdminPanelOpen: boolean;
+  setIsAdminPanelOpen: (open: boolean) => void;
+  activeReportTarget: { targetType: 'post' | 'user' | 'shop'; targetId: string; targetTitle?: string; targetUserId?: string } | null;
+  setActiveReportTarget: (target: { targetType: 'post' | 'user' | 'shop'; targetId: string; targetTitle?: string; targetUserId?: string } | null) => void;
+  submitReport: (data: {
+    targetType: 'post' | 'user' | 'shop';
+    targetId: string;
+    targetTitle?: string;
+    targetUserId?: string;
+    reason: ReportReason;
+    description: string;
+  }) => Promise<void>;
+  blockUser: (targetUserId: string) => Promise<void>;
+  unblockUser: (targetUserId: string) => Promise<void>;
+  isTermsModalOpen: boolean;
+  setIsTermsModalOpen: (open: boolean) => void;
+  termsModalMode: 'terms' | 'about';
+  setTermsModalMode: (mode: 'terms' | 'about') => void;
+
+  // Lojas & Negócios (Shops)
+  shops: Shop[];
+  shopsLoading: boolean;
+  selectedShop: Shop | null;
+  openShopDetail: (shopOrId: Shop | string) => Promise<void>;
+  closeShopDetail: () => void;
+  isRegisterShopModalOpen: boolean;
+  setIsRegisterShopModalOpen: (open: boolean) => void;
+  isEditShopModalOpen: boolean;
+  setIsEditShopModalOpen: (open: boolean) => void;
+  isAddProductModalOpen: boolean;
+  setIsAddProductModalOpen: (open: boolean) => void;
+  activeShopReviewModal: Shop | null;
+  setActiveShopReviewModal: (shop: Shop | null) => void;
+  shopProducts: ShopProduct[];
+  shopProductsLoading: boolean;
+  registerShop: (data: {
+    name: string;
+    shopType: ShopType;
+    city: string;
+    address: string;
+    phone: string;
+    whatsapp?: string;
+    openingHours: string;
+    hasDelivery: boolean;
+    description: string;
+    logoFile?: File | null;
+    coverFile?: File | null;
+  }) => Promise<void>;
+  updateShop: (shopId: string, data: Partial<Shop> & { logoFile?: File | null; coverFile?: File | null }) => Promise<void>;
+  deleteShop: (shopId: string) => Promise<void>;
+  toggleShopVerification: (shopId: string, currentStatus: boolean) => Promise<void>;
+  addShopProduct: (shopId: string, data: {
+    title: string;
+    description?: string;
+    price: number;
+    status: 'disponivel' | 'esgotado';
+    imageFile?: File | null;
+    imageUrl?: string;
+  }) => Promise<void>;
+  toggleShopProductStatus: (shopId: string, productId: string, currentStatus: 'disponivel' | 'esgotado') => Promise<void>;
+  deleteShopProduct: (shopId: string, productId: string) => Promise<void>;
+  addShopReview: (shopId: string, rating: number, comment: string) => Promise<void>;
+  fetchShopReviews: (shopId: string) => Promise<ShopReview[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -144,6 +216,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeCategory, setActiveCategory] = useState<ProductCategory>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Lojas & Negócios State
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [shopsLoading, setShopsLoading] = useState(true);
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [shopProducts, setShopProducts] = useState<ShopProduct[]>([]);
+  const [shopProductsLoading, setShopProductsLoading] = useState(false);
+  const [isRegisterShopModalOpen, setIsRegisterShopModalOpen] = useState(false);
+  const [isEditShopModalOpen, setIsEditShopModalOpen] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [activeShopReviewModal, setActiveShopReviewModal] = useState<Shop | null>(null);
+
   // Conversations & Notifications
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -153,7 +236,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [activeCommentsPost, setActiveCommentsPost] = useState<Post | null>(null);
   const [activeOfferPost, setActiveOfferPost] = useState<Post | null>(null);
+  const [activeReviewTarget, setActiveReviewTarget] = useState<{ seller: User; post?: Post } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Admin & Reports & Terms
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [activeReportTarget, setActiveReportTarget] = useState<{
+    targetType: 'post' | 'user' | 'shop';
+    targetId: string;
+    targetTitle?: string;
+    targetUserId?: string;
+  } | null>(null);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [termsModalMode, setTermsModalMode] = useState<'terms' | 'about'>('terms');
+
+  const isAdmin = user?.email === 'isach8191@gmail.com';
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -193,6 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (snap.exists()) {
             const data = snap.data();
+            const adminStatus = firebaseUser.email === 'isach8191@gmail.com';
             setUser({
               id: firebaseUser.uid,
               name: data.name || firebaseUser.displayName || 'Utilizador',
@@ -202,7 +300,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               coverPhoto: data.coverPhoto || DEFAULT_COVER,
               rating: data.rating ?? 5.0,
               totalSales: data.totalSales ?? 0,
+              reviewCount: data.reviewCount ?? 0,
               verified: data.verified ?? true,
+              role: adminStatus ? 'admin' : (data.role || 'user'),
+              isAdmin: adminStatus,
+              isBlocked: !!data.isBlocked,
+              blockedUserIds: Array.isArray(data.blockedUserIds) ? data.blockedUserIds : [],
               bio: data.bio ?? 'Vendedor no VENDA AQUI.',
               location: data.location ?? 'Portugal / Brasil',
               phone: data.phone ?? '',
@@ -210,16 +313,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           } else {
             // First time login - create user document
+            const adminStatus = firebaseUser.email === 'isach8191@gmail.com';
+            const cleanUser = (firebaseUser.email?.split('@')[0] || 'vendedor').replace(/[^a-zA-Z0-9_]/g, '');
             const newUser: User = {
               id: firebaseUser.uid,
               name: firebaseUser.displayName || 'Utilizador',
-              username: (firebaseUser.email?.split('@')[0] || 'vendedor').replace(/[^a-zA-Z0-9_]/g, ''),
+              username: cleanUser,
               email: firebaseUser.email || '',
               avatar: firebaseUser.photoURL || DEFAULT_AVATAR,
               coverPhoto: DEFAULT_COVER,
               rating: 5.0,
               totalSales: 0,
+              reviewCount: 0,
               verified: true,
+              role: adminStatus ? 'admin' : 'user',
+              isAdmin: adminStatus,
+              isBlocked: false,
+              blockedUserIds: [],
               bio: 'Vendedor no VENDA AQUI.',
               location: 'Portugal / Brasil',
               phone: '',
@@ -293,9 +403,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         });
 
+        // Filter out posts from blocked users if current user has blocked them
+        const filtered = loadedPosts.filter(
+          (p) => !user.blockedUserIds || !user.blockedUserIds.includes(p.sellerId)
+        );
+
         // Sort descending by id or timestamp
-        loadedPosts.sort((a, b) => b.id.localeCompare(a.id));
-        setPosts(loadedPosts);
+        filtered.sort((a, b) => b.id.localeCompare(a.id));
+        setPosts(filtered);
         setPostsLoading(false);
       },
       (error) => {
@@ -306,6 +421,101 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => unsubscribe();
   }, [user]);
+
+  // Listen to Real Shops & Businesses from Firestore
+  useEffect(() => {
+    if (!user) {
+      setShops([]);
+      setShopsLoading(false);
+      return;
+    }
+
+    setShopsLoading(true);
+    const shopsQuery = query(collection(db, 'shops'));
+    const unsubscribe = onSnapshot(
+      shopsQuery,
+      (snapshot) => {
+        const loadedShops: Shop[] = snapshot.docs.map((docSnap) => {
+          const d = docSnap.data();
+          return {
+            id: docSnap.id,
+            ownerId: d.ownerId,
+            ownerEmail: d.ownerEmail || '',
+            name: d.name,
+            shopType: d.shopType || 'Outros',
+            city: d.city || '',
+            address: d.address || '',
+            phone: d.phone || '',
+            whatsapp: d.whatsapp || d.phone || '',
+            openingHours: d.openingHours || '08:00 às 18:00',
+            hasDelivery: !!d.hasDelivery,
+            logo: d.logo || DEFAULT_AVATAR,
+            coverPhoto: d.coverPhoto || DEFAULT_COVER,
+            description: d.description || '',
+            verified: !!d.verified,
+            rating: Number(d.rating) || 5.0,
+            reviewCount: Number(d.reviewCount) || 0,
+            createdAt: d.createdAt || new Date().toISOString(),
+          };
+        });
+
+        // Sort: verified shops first, then recent
+        loadedShops.sort((a, b) => {
+          if (a.verified !== b.verified) {
+            return b.verified ? 1 : -1;
+          }
+          return b.id.localeCompare(a.id);
+        });
+
+        setShops(loadedShops);
+        setShopsLoading(false);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'shops');
+        setShopsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen to Products of active selected shop
+  useEffect(() => {
+    if (!selectedShop) {
+      setShopProducts([]);
+      return;
+    }
+
+    setShopProductsLoading(true);
+    const productsRef = collection(db, 'shops', selectedShop.id, 'products');
+    const unsubscribe = onSnapshot(
+      productsRef,
+      (snapshot) => {
+        const prods: ShopProduct[] = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            shopId: selectedShop.id,
+            title: data.title,
+            description: data.description || '',
+            price: Number(data.price) || 0,
+            image: data.image || DEFAULT_COVER,
+            status: data.status || 'disponivel',
+            createdAt: data.createdAt || new Date().toISOString(),
+          };
+        });
+        prods.sort((a, b) => b.id.localeCompare(a.id));
+        setShopProducts(prods);
+        setShopProductsLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching shop products:', err);
+        setShopProductsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [selectedShop]);
 
   // Auth Handlers
   const signInWithGoogle = async () => {
@@ -343,19 +553,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     location: string
   ) => {
     try {
+      // 1. Validation: Unique username without spaces
+      const cleanUsername = username.trim().toLowerCase();
+      if (!/^[a-zA-Z0-9_]{3,30}$/.test(cleanUsername)) {
+        throw new Error('O nome de utilizador só pode conter letras, números e sublinhados (_), sem espaços (3 a 30 caracteres).');
+      }
+
+      // Check username uniqueness in Firestore
+      const userQuery = query(collection(db, 'users'), where('username', '==', cleanUsername));
+      const uSnap = await getDocs(userQuery);
+      if (!uSnap.empty) {
+        throw new Error(`O nome de utilizador @${cleanUsername} já está registado. Por favor escolha outro.`);
+      }
+
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(res.user, { displayName: name });
 
+      const adminStatus = email === 'isach8191@gmail.com';
       const newUser: User = {
         id: res.user.uid,
         name,
-        username: username.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''),
+        username: cleanUsername,
         email,
         avatar: DEFAULT_AVATAR,
         coverPhoto: DEFAULT_COVER,
         rating: 5.0,
         totalSales: 0,
+        reviewCount: 0,
         verified: true,
+        role: adminStatus ? 'admin' : 'user',
+        isAdmin: adminStatus,
+        isBlocked: false,
+        blockedUserIds: [],
         bio: 'Vendedor no VENDA AQUI.',
         location: location || 'Portugal / Brasil',
         phone: '',
@@ -367,14 +596,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Conta criada com sucesso no VENDA AQUI!');
     } catch (error: any) {
       console.error('Sign up error:', error);
-      let msg = 'Erro ao registar conta';
+      let msg = error.message || 'Erro ao registar conta';
       if (error.code === 'auth/email-already-in-use') {
         msg = 'Este e-mail já está em uso.';
       } else if (error.code === 'auth/weak-password') {
         msg = 'A senha deve conter pelo menos 6 caracteres.';
       }
       showToast(msg);
-      throw error;
+      throw new Error(msg);
     }
   };
 
@@ -382,18 +611,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await firebaseSignOut(auth);
     setUser(null);
     setSelectedProfileUser(null);
+    setSelectedShop(null);
     showToast('Sessão terminada.');
   };
 
-  // Helper to upload image file or convert to base64 safely
+  // Helper to upload image file or fallback to base64
   const uploadImageFile = async (file: File, folder: string): Promise<string> => {
+    // 5 MB image size limit validation
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('A imagem ultrapassa o limite de 5 MB.');
+    }
+    if (!file.type.startsWith('image/')) {
+      throw new Error('O ficheiro deve ser uma imagem válida (JPG, PNG, WebP).');
+    }
+
     try {
       const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`);
       const snap = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snap.ref);
       return url;
     } catch (err) {
-      console.warn('Storage upload failed, falling back to base64 data URL:', err);
+      console.warn('Storage upload fallback to base64 data URL:', err);
       return new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
@@ -472,7 +710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Create real post in Firestore
+  // Create real post in Firestore with price, 5MB, anti-spam (max 10/hour), and block check
   const createPost = async (data: {
     title: string;
     price: number;
@@ -484,6 +722,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     location: string;
   }) => {
     if (!user) return;
+
+    if (user.isBlocked) {
+      showToast('A sua conta está bloqueada e não pode publicar anúncios.');
+      throw new Error('Conta suspensa.');
+    }
+
+    // Mandatory numeric price > 0
+    if (typeof data.price !== 'number' || isNaN(data.price) || data.price <= 0) {
+      showToast('Preço obrigatório e numérico.');
+      throw new Error('Preço inválido.');
+    }
+
+    // Image size check
+    if (data.imageFile && data.imageFile.size > 5 * 1024 * 1024) {
+      showToast('A fotografia não pode ter mais de 5 MB.');
+      throw new Error('Imagem superior a 5 MB.');
+    }
+
+    // Anti-spam rule: Limitar publicações a 10 por hora por utilizador
+    const oneHourAgo = Date.now() - 3600000;
+    const userPostsInLastHour = posts.filter(
+      (p) => p.sellerId === user.id && p.createdAt && new Date(p.createdAt).getTime() > oneHourAgo
+    );
+    if (userPostsInLastHour.length >= 10) {
+      showToast('Limite de segurança: máximo 10 publicações por hora contra spam.');
+      throw new Error('Limite anti-spam atingido.');
+    }
 
     let imageUrl = data.imagePreviewUrl || DEFAULT_COVER;
 
@@ -572,7 +837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Delete post from Firestore
+  // Delete post from Firestore (seller or admin)
   const deletePost = async (postId: string) => {
     if (!user) return;
     try {
@@ -651,13 +916,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('messages');
   };
 
-  const [activeReviewTarget, setActiveReviewTarget] = useState<{ seller: User; post?: Post } | null>(null);
-
   const fetchSellerReviews = async (sellerId: string): Promise<any[]> => {
     try {
       const q = query(collection(db, 'users', sellerId, 'reviews'));
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (err) {
       console.error('Error fetching seller reviews:', err);
       return [];
@@ -699,25 +962,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reviewCount: allRatings.length,
       });
 
-      // Update selectedProfileUser if currently viewing this seller
       if (selectedProfileUser && selectedProfileUser.id === sellerId) {
-        setSelectedProfileUser(prev => prev ? {
-          ...prev,
-          rating: Math.round(avgRating * 10) / 10,
-          reviewCount: allRatings.length,
-        } : null);
+        setSelectedProfileUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                rating: Math.round(avgRating * 10) / 10,
+                reviewCount: allRatings.length,
+              }
+            : null
+        );
       }
-
-      // Notify seller
-      await addDoc(collection(db, 'notifications'), {
-        userId: sellerId,
-        type: 'review',
-        title: `Nova avaliação de ${user.name}!`,
-        description: `Recebeu ${rating} estrelas: "${comment.slice(0, 80)}"`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        userAvatar: user.avatar,
-      });
 
       showToast('Avaliação registada com sucesso!');
     } catch (err) {
@@ -732,13 +987,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: 'vendido',
       });
 
-      // Increment seller total sales
       await updateDoc(doc(db, 'users', user.id), {
         totalSales: (user.totalSales || 0) + 1,
       });
 
-      setUser(prev => prev ? { ...prev, totalSales: (prev.totalSales || 0) + 1 } : null);
-      showToast('Transação marcada como concluída / vendido!');
+      setUser((prev) => (prev ? { ...prev, totalSales: (prev.totalSales || 0) + 1 } : null));
+      showToast('Transação concluída / produto vendido!');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `posts/${postId}`);
     }
@@ -751,6 +1005,368 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const markAllNotificationsAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     showToast('Todas as notificações foram lidas.');
+  };
+
+  // Submit report to administrator
+  const submitReport = async (data: {
+    targetType: 'post' | 'user' | 'shop';
+    targetId: string;
+    targetTitle?: string;
+    targetUserId?: string;
+    reason: ReportReason;
+    description: string;
+  }) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'reports'), {
+        reporterId: user.id,
+        reporterName: user.name,
+        reporterEmail: user.email,
+        targetType: data.targetType,
+        targetId: data.targetId,
+        targetTitle: data.targetTitle || '',
+        targetUserId: data.targetUserId || '',
+        reason: data.reason,
+        description: data.description,
+        status: 'pendente',
+        createdAt: new Date().toISOString(),
+      });
+      setActiveReportTarget(null);
+      showToast('Denúncia enviada ao administrador.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'reports');
+    }
+  };
+
+  // Block user: hides posts of this user in feed
+  const blockUser = async (targetUserId: string) => {
+    if (!user) return;
+    const current = user.blockedUserIds || [];
+    if (current.includes(targetUserId)) return;
+    const updated = [...current, targetUserId];
+
+    try {
+      await updateDoc(doc(db, 'users', user.id), { blockedUserIds: updated });
+      setUser((prev) => (prev ? { ...prev, blockedUserIds: updated } : null));
+      showToast('Utilizador bloqueado. Não verá mais os anúncios dele.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.id}`);
+    }
+  };
+
+  // Unblock user
+  const unblockUser = async (targetUserId: string) => {
+    if (!user) return;
+    const updated = (user.blockedUserIds || []).filter((id) => id !== targetUserId);
+
+    try {
+      await updateDoc(doc(db, 'users', user.id), { blockedUserIds: updated });
+      setUser((prev) => (prev ? { ...prev, blockedUserIds: updated } : null));
+      showToast('Utilizador desbloqueado.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.id}`);
+    }
+  };
+
+  // ----------------------------------------------------
+  // LOJAS & NEGÓCIOS (SHOPS) IMPLEMENTATION
+  // ----------------------------------------------------
+  const openShopDetail = async (shopOrId: Shop | string) => {
+    if (typeof shopOrId === 'object') {
+      setSelectedShop(shopOrId);
+      setActiveTab('shop_detail');
+      return;
+    }
+
+    try {
+      const snap = await getDoc(doc(db, 'shops', shopOrId));
+      if (snap.exists()) {
+        const d = snap.data();
+        setSelectedShop({
+          id: snap.id,
+          ownerId: d.ownerId,
+          ownerEmail: d.ownerEmail || '',
+          name: d.name,
+          shopType: d.shopType || 'Outros',
+          city: d.city || '',
+          address: d.address || '',
+          phone: d.phone || '',
+          whatsapp: d.whatsapp || d.phone || '',
+          openingHours: d.openingHours || '08:00 às 18:00',
+          hasDelivery: !!d.hasDelivery,
+          logo: d.logo || DEFAULT_AVATAR,
+          coverPhoto: d.coverPhoto || DEFAULT_COVER,
+          description: d.description || '',
+          verified: !!d.verified,
+          rating: Number(d.rating) || 5.0,
+          reviewCount: Number(d.reviewCount) || 0,
+          createdAt: d.createdAt || new Date().toISOString(),
+        });
+        setActiveTab('shop_detail');
+      }
+    } catch (err) {
+      console.error('Error opening shop detail:', err);
+    }
+  };
+
+  const closeShopDetail = () => {
+    setSelectedShop(null);
+    setActiveTab('shops');
+  };
+
+  // Register Shop
+  const registerShop = async (data: {
+    name: string;
+    shopType: ShopType;
+    city: string;
+    address: string;
+    phone: string;
+    whatsapp?: string;
+    openingHours: string;
+    hasDelivery: boolean;
+    description: string;
+    logoFile?: File | null;
+    coverFile?: File | null;
+  }) => {
+    if (!user) return;
+
+    if (user.isBlocked) {
+      showToast('A sua conta está bloqueada.');
+      throw new Error('Conta suspensa.');
+    }
+
+    let logoUrl = DEFAULT_AVATAR;
+    let coverUrl = DEFAULT_COVER;
+
+    if (data.logoFile) {
+      logoUrl = await uploadImageFile(data.logoFile, `shops/${user.id}/logos`);
+    }
+    if (data.coverFile) {
+      coverUrl = await uploadImageFile(data.coverFile, `shops/${user.id}/covers`);
+    }
+
+    const newShopData = {
+      ownerId: user.id,
+      ownerEmail: user.email,
+      name: data.name.trim(),
+      shopType: data.shopType,
+      city: data.city.trim(),
+      address: data.address.trim(),
+      phone: data.phone.trim(),
+      whatsapp: (data.whatsapp || data.phone).trim(),
+      openingHours: data.openingHours.trim() || '08:00 às 18:00',
+      hasDelivery: Boolean(data.hasDelivery),
+      logo: logoUrl,
+      coverPhoto: coverUrl,
+      description: data.description.trim(),
+      verified: false, // Selo de verificada gerido só pelo administrador
+      rating: 5.0,
+      reviewCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'shops'), newShopData);
+      setIsRegisterShopModalOpen(false);
+      showToast('Loja / Negócio registado com sucesso no VENDA AQUI!');
+      openShopDetail({ id: docRef.id, ...newShopData });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'shops');
+    }
+  };
+
+  // Update Shop
+  const updateShop = async (shopId: string, data: Partial<Shop> & { logoFile?: File | null; coverFile?: File | null }) => {
+    if (!user) return;
+
+    let updatePayload: any = { ...data };
+    delete updatePayload.logoFile;
+    delete updatePayload.coverFile;
+
+    // Normal users cannot verify themselves
+    if (!isAdmin) {
+      delete updatePayload.verified;
+      delete updatePayload.ownerId;
+    }
+
+    if (data.logoFile) {
+      updatePayload.logo = await uploadImageFile(data.logoFile, `shops/${user.id}/logos`);
+    }
+    if (data.coverFile) {
+      updatePayload.coverPhoto = await uploadImageFile(data.coverFile, `shops/${user.id}/covers`);
+    }
+
+    updatePayload.updatedAt = new Date().toISOString();
+
+    try {
+      await updateDoc(doc(db, 'shops', shopId), updatePayload);
+      setSelectedShop((prev) => (prev && prev.id === shopId ? { ...prev, ...updatePayload } : prev));
+      setIsEditShopModalOpen(false);
+      showToast('Dados da loja atualizados.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `shops/${shopId}`);
+    }
+  };
+
+  // Delete Shop
+  const deleteShop = async (shopId: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'shops', shopId));
+      if (selectedShop && selectedShop.id === shopId) {
+        closeShopDetail();
+      }
+      showToast('Loja removida com sucesso.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `shops/${shopId}`);
+    }
+  };
+
+  // Toggle Shop Verification (Admin only)
+  const toggleShopVerification = async (shopId: string, currentStatus: boolean) => {
+    if (!isAdmin) {
+      showToast('Apenas o administrador (isach8191@gmail.com) pode atribuir o selo de verificada.');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'shops', shopId), {
+        verified: !currentStatus,
+      });
+
+      setSelectedShop((prev) => (prev && prev.id === shopId ? { ...prev, verified: !currentStatus } : prev));
+      showToast(`Selo de verificada ${!currentStatus ? 'atribuído' : 'removido'} com sucesso!`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `shops/${shopId}`);
+    }
+  };
+
+  // Add Product to Shop Catalog
+  const addShopProduct = async (shopId: string, data: {
+    title: string;
+    description?: string;
+    price: number;
+    status: 'disponivel' | 'esgotado';
+    imageFile?: File | null;
+    imageUrl?: string;
+  }) => {
+    if (!user) return;
+
+    if (typeof data.price !== 'number' || isNaN(data.price) || data.price <= 0) {
+      showToast('Preço numérico obrigatório.');
+      throw new Error('Preço inválido.');
+    }
+
+    let imgUrl = data.imageUrl || DEFAULT_COVER;
+    if (data.imageFile) {
+      imgUrl = await uploadImageFile(data.imageFile, `shops/${shopId}/products`);
+    }
+
+    const prodData = {
+      shopId,
+      title: data.title.trim(),
+      description: (data.description || '').trim(),
+      price: data.price,
+      image: imgUrl,
+      status: data.status,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await addDoc(collection(db, 'shops', shopId, 'products'), prodData);
+      setIsAddProductModalOpen(false);
+      showToast('Produto adicionado ao catálogo da loja!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `shops/${shopId}/products`);
+    }
+  };
+
+  // Toggle Shop Product Status (Disponível ou Esgotado)
+  const toggleShopProductStatus = async (shopId: string, productId: string, currentStatus: 'disponivel' | 'esgotado') => {
+    if (!user) return;
+    const newStatus = currentStatus === 'disponivel' ? 'esgotado' : 'disponivel';
+
+    try {
+      await updateDoc(doc(db, 'shops', shopId, 'products', productId), {
+        status: newStatus,
+      });
+      showToast(`Produto marcado como ${newStatus === 'disponivel' ? 'Disponível' : 'Esgotado'}.`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `shops/${shopId}/products/${productId}`);
+    }
+  };
+
+  // Delete Shop Product
+  const deleteShopProduct = async (shopId: string, productId: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'shops', shopId, 'products', productId));
+      showToast('Produto removido do catálogo.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `shops/${shopId}/products/${productId}`);
+    }
+  };
+
+  // Fetch reviews for a shop
+  const fetchShopReviews = async (shopId: string): Promise<ShopReview[]> => {
+    try {
+      const q = query(collection(db, 'shops', shopId, 'reviews'));
+      const snap = await getDocs(q);
+      const revs: ShopReview[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+      revs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return revs;
+    } catch (err) {
+      console.error('Error fetching shop reviews:', err);
+      return [];
+    }
+  };
+
+  // Add review to a shop (1 to 5 stars)
+  const addShopReview = async (shopId: string, rating: number, comment: string) => {
+    if (!user) return;
+
+    const reviewData = {
+      shopId,
+      userId: user.id,
+      userName: user.name,
+      userUsername: user.username,
+      userAvatar: user.avatar,
+      rating,
+      comment: comment.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await addDoc(collection(db, 'shops', shopId, 'reviews'), reviewData);
+
+      // Recalculate average rating
+      const allReviews = await fetchShopReviews(shopId);
+      const allRatings = [...allReviews.map((r) => r.rating || 5), rating];
+      const avgRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
+
+      await updateDoc(doc(db, 'shops', shopId), {
+        rating: Math.round(avgRating * 10) / 10,
+        reviewCount: allRatings.length,
+      });
+
+      setSelectedShop((prev) =>
+        prev && prev.id === shopId
+          ? {
+              ...prev,
+              rating: Math.round(avgRating * 10) / 10,
+              reviewCount: allRatings.length,
+            }
+          : prev
+      );
+
+      setActiveShopReviewModal(null);
+      showToast('Avaliação da loja submetida com sucesso!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `shops/${shopId}/reviews`);
+    }
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
@@ -810,6 +1426,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addReviewToSeller,
         markPostAsCompleted,
         fetchSellerReviews,
+        isAdmin,
+        isAdminPanelOpen,
+        setIsAdminPanelOpen,
+        activeReportTarget,
+        setActiveReportTarget,
+        submitReport,
+        blockUser,
+        unblockUser,
+        isTermsModalOpen,
+        setIsTermsModalOpen,
+        termsModalMode,
+        setTermsModalMode,
+        shops,
+        shopsLoading,
+        selectedShop,
+        openShopDetail,
+        closeShopDetail,
+        isRegisterShopModalOpen,
+        setIsRegisterShopModalOpen,
+        isEditShopModalOpen,
+        setIsEditShopModalOpen,
+        isAddProductModalOpen,
+        setIsAddProductModalOpen,
+        activeShopReviewModal,
+        setActiveShopReviewModal,
+        shopProducts,
+        shopProductsLoading,
+        registerShop,
+        updateShop,
+        deleteShop,
+        toggleShopVerification,
+        addShopProduct,
+        toggleShopProductStatus,
+        deleteShopProduct,
+        addShopReview,
+        fetchShopReviews,
       }}
     >
       {children}

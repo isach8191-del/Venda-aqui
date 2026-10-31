@@ -9,6 +9,8 @@ import { LoginScreen } from './components/LoginScreen';
 import { AppHeader } from './components/AppHeader';
 import { BottomNav } from './components/BottomNav';
 import { FeedTab } from './components/FeedTab';
+import { ShopsTab } from './components/ShopsTab';
+import { ShopDetailView } from './components/ShopDetailView';
 import { MessagesTab } from './components/MessagesTab';
 import { NotificationsTab } from './components/NotificationsTab';
 import { SettingsTab } from './components/SettingsTab';
@@ -17,16 +19,40 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { CreatePostModal } from './components/CreatePostModal';
 import { CommentsModal } from './components/CommentsModal';
 import { MakeOfferModal } from './components/MakeOfferModal';
+import { RegisterShopModal } from './components/RegisterShopModal';
+import { EditShopModal } from './components/EditShopModal';
+import { AddProductModal } from './components/AddProductModal';
+import { ShopReviewModal } from './components/ShopReviewModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { ReportModal } from './components/ReportModal';
+import { TermsModal } from './components/TermsModal';
+import { BlockedScreen } from './components/BlockedScreen';
+import { ReviewModal } from './components/ReviewModal';
 import { CheckCircle2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user, authLoading, activeTab, selectedProfileUser, toastMessage } = useApp();
+  const { 
+    user, 
+    authLoading, 
+    activeTab, 
+    selectedProfileUser, 
+    toastMessage,
+    isAdminPanelOpen,
+    setIsAdminPanelOpen,
+    activeReportTarget,
+    setActiveReportTarget,
+    isTermsModalOpen,
+    setIsTermsModalOpen,
+    termsModalMode,
+    activeReviewTarget,
+    setActiveReviewTarget
+  } = useApp();
 
   // 1. Initial Auth Loading State
   if (authLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center justify-center p-4">
-        <div className="w-8 h-8 rounded-xs border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-black text-xs flex items-center justify-center animate-pulse mb-3">
+        <div className="w-8 h-8 rounded-none border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-black text-xs flex items-center justify-center animate-pulse mb-3">
           VA
         </div>
         <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">
@@ -38,14 +64,29 @@ const AppContent: React.FC = () => {
 
   // 2. Strict Login Gate: Sem conta, não se acede ao app!
   if (!user) {
-    return <LoginScreen />;
+    return (
+      <>
+        <LoginScreen />
+        {isTermsModalOpen && (
+          <TermsModal
+            mode={termsModalMode}
+            onClose={() => setIsTermsModalOpen(false)}
+          />
+        )}
+      </>
+    );
   }
 
-  // 3. Authenticated App Shell
+  // 3. Blocked User Screen (utilizador bloqueado não consegue entrar nem publicar)
+  if (user.isBlocked) {
+    return <BlockedScreen />;
+  }
+
+  // 4. Authenticated App Shell with strictly fixed top and bottom bars
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-200 flex flex-col font-sans pb-20 selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-150 flex flex-col font-sans pt-14 pb-20 sm:pb-24 selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
       
-      {/* Top Header (VENDA AQUI on left, publish space in center) */}
+      {/* Top Fixed Header (pequena e clássica, botão único "Publicar" no topo) */}
       <AppHeader />
 
       {/* Main Content View */}
@@ -56,6 +97,8 @@ const AppContent: React.FC = () => {
         ) : (
           <>
             {activeTab === 'feed' && <FeedTab />}
+            {activeTab === 'shops' && <ShopsTab />}
+            {activeTab === 'shop_detail' && <ShopDetailView />}
             {activeTab === 'messages' && <MessagesTab />}
             {activeTab === 'notifications' && <NotificationsTab />}
             {activeTab === 'settings' && <SettingsTab />}
@@ -63,7 +106,7 @@ const AppContent: React.FC = () => {
         )}
       </main>
 
-      {/* Bottom Navigation Bar (1º Casa, 2º Mensagens, 3º Notificações, 4º Definições) */}
+      {/* Bottom Fixed Navigation Bar (Casa, Lojas, Mensagens, Notificações, Definições) */}
       <BottomNav />
 
       {/* Modals & Dialogs */}
@@ -71,10 +114,50 @@ const AppContent: React.FC = () => {
       <EditProfileModal />
       <CommentsModal />
       <MakeOfferModal />
+      <RegisterShopModal />
+      <EditShopModal />
+      <AddProductModal />
+      <ShopReviewModal />
+
+      {/* Admin Panel Modal (exclusivo para isach8191@gmail.com) */}
+      {isAdminPanelOpen && (
+        <AdminPanelModal onClose={() => setIsAdminPanelOpen(false)} />
+      )}
+
+      {/* Report Modal */}
+      {activeReportTarget && (
+        <ReportModal
+          targetType={activeReportTarget.targetType}
+          targetId={activeReportTarget.targetId}
+          targetTitle={activeReportTarget.targetTitle}
+          targetUserId={activeReportTarget.targetUserId}
+          onClose={() => setActiveReportTarget(null)}
+        />
+      )}
+
+      {/* Terms & About Modal */}
+      {isTermsModalOpen && (
+        <TermsModal
+          mode={termsModalMode}
+          onClose={() => setIsTermsModalOpen(false)}
+        />
+      )}
+
+      {/* Seller Review Modal */}
+      {activeReviewTarget && (
+        <ReviewModal
+          sellerId={activeReviewTarget.seller.id}
+          sellerName={activeReviewTarget.seller.name}
+          sellerAvatar={activeReviewTarget.seller.avatar}
+          productId={activeReviewTarget.post?.id}
+          productTitle={activeReviewTarget.post?.title}
+          onClose={() => setActiveReviewTarget(null)}
+        />
+      )}
 
       {/* Toast notifications */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider rounded-sm shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider rounded-none shadow-md flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span>{toastMessage}</span>
         </div>

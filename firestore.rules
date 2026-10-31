@@ -6,6 +6,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'isach8191@gmail.com';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -18,7 +22,7 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Default deny
+    // Default deny all
     match /{document=**} {
       allow read, write: if false;
     }
@@ -26,57 +30,124 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update: if isSignedIn(); // Allow updating review rating aggregations
-      allow delete: if isOwner(userId);
 
-      // Reviews left by buyers for this seller
+      // Only owner can create their own profile, cannot grant themselves admin or set blocked
+      allow create: if isOwner(userId) && 
+        (!('role' in incoming()) || incoming().role != 'admin') &&
+        (!('isAdmin' in incoming()) || incoming().isAdmin == false) &&
+        (!('isBlocked' in incoming()) || incoming().isBlocked == false);
+
+      // Only owner or admin can update; owner cannot change role, admin, or isBlocked fields
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (isOwner(userId) && 
+          !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isAdmin', 'isBlocked'])
+        ) ||
+        // Allow rating and reviewCount aggregation
+        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewCount', 'totalSales'])
+      );
+
+      // Only admin or owner can delete profile
+      allow delete: if isAdmin() || isOwner(userId);
+
+      // Subcollection: Reviews left by buyers
       match /reviews/{reviewId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().buyerId == request.auth.uid;
-        allow update, delete: if isSignedIn() && existing().buyerId == request.auth.uid;
+        allow update, delete: if isAdmin() || (isSignedIn() && existing().buyerId == request.auth.uid);
       }
     }
 
     // Posts / Listings
     match /posts/{postId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && incoming().sellerId == request.auth.uid;
+
+      // Only authenticated users can create their own posts, must have price > 0
+      allow create: if isSignedIn() && 
+        incoming().sellerId == request.auth.uid &&
+        incoming().price is number && 
+        incoming().price > 0;
+
+      // Seller or Admin can update post; or users can toggle likes/comments
       allow update: if isSignedIn() && (
+        isAdmin() ||
         existing().sellerId == request.auth.uid ||
-        // Allow liking / unliking / commenting / marking completed updates
         incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy', 'commentsCount', 'status', 'buyerId'])
       );
-      allow delete: if isSignedIn() && existing().sellerId == request.auth.uid;
+
+      // Only seller or Admin can delete post
+      allow delete: if isAdmin() || (isSignedIn() && existing().sellerId == request.auth.uid);
 
       // Comments subcollection
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().authorId == request.auth.uid;
-        allow update, delete: if isSignedIn() && existing().authorId == request.auth.uid;
+        allow update, delete: if isAdmin() || (isSignedIn() && existing().authorId == request.auth.uid);
       }
+    }
+
+    // Shops and Businesses (lojas, mercearias, barracas, prestadores de serviços)
+    match /shops/{shopId} {
+      allow read: if isSignedIn();
+
+      // Only authenticated users can register their shop, verified cannot be set to true by user
+      allow create: if isSignedIn() && 
+        incoming().ownerId == request.auth.uid &&
+        (!('verified' in incoming()) || incoming().verified == false);
+
+      // Owner or Admin can update shop; normal user cannot change verified or ownerId
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (existing().ownerId == request.auth.uid && !incoming().diff(existing()).affectedKeys().hasAny(['verified', 'ownerId'])) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewCount'])
+      );
+
+      // Only Owner or Admin can delete shop
+      allow delete: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid);
+
+      // Shop products catalog
+      match /products/{productId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isSignedIn() && (
+          isAdmin() || 
+          get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid
+        );
+      }
+
+      // Shop reviews
+      match /reviews/{reviewId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+        allow update, delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      }
+    }
+
+    // Reports collection (denúncias)
+    match /reports/{reportId} {
+      // Any authenticated user can submit a report
+      allow create: if isSignedIn() && incoming().reporterId == request.auth.uid;
+      // Only administrator can read, resolve or delete reports
+      allow read, update, delete: if isAdmin();
     }
 
     // Conversations
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && (
-        request.auth.uid in existing().participantIds
+        isAdmin() || request.auth.uid in existing().participantIds
       );
       allow create: if isSignedIn() && (
         request.auth.uid in incoming().participantIds
       );
       allow update: if isSignedIn() && (
-        request.auth.uid in existing().participantIds
+        isAdmin() || request.auth.uid in existing().participantIds
       );
-      allow delete: if isSignedIn() && (
-        request.auth.uid in existing().participantIds
-      );
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid in existing().participantIds);
 
       // Messages in conversation
       match /messages/{messageId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
-        allow update, delete: if isSignedIn() && existing().senderId == request.auth.uid;
+        allow update, delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
       }
     }
 
@@ -84,8 +155,7 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && existing().userId == request.auth.uid;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && existing().userId == request.auth.uid;
-      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
   }
 }

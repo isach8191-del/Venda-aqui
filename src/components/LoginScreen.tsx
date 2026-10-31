@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Lock, Mail, User as UserIcon, MapPin, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useApp();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, setIsTermsModalOpen, setTermsModalMode } = useApp();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +14,7 @@ export const LoginScreen: React.FC = () => {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [location, setLocation] = useState('Lisboa, Portugal');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -39,6 +40,19 @@ export const LoginScreen: React.FC = () => {
           setLoading(false);
           return;
         }
+
+        if (!/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
+          setError('O nome de utilizador não pode conter espaços nem caracteres especiais (apenas letras, números e _).');
+          setLoading(false);
+          return;
+        }
+
+        if (!acceptedTerms) {
+          setError('Deve aceitar os Termos de Utilização e a Política de Privacidade para criar conta.');
+          setLoading(false);
+          return;
+        }
+
         await signUpWithEmail(email, password, name.trim(), username.trim(), location.trim());
       } else {
         await signInWithEmail(email, password);
@@ -230,6 +244,47 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
           </div>
+
+          {isRegister && (
+            <div className="pt-1">
+              <label className="flex items-start gap-2 cursor-pointer text-[11px] text-neutral-600 dark:text-neutral-400">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  required
+                  className="mt-0.5 rounded-xs"
+                />
+                <span className="leading-tight">
+                  Li e aceito os{' '}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTermsModalMode('terms');
+                      setIsTermsModalOpen(true);
+                    }}
+                    className="text-black dark:text-white font-bold underline hover:opacity-80"
+                  >
+                    Termos de Utilização
+                  </button>{' '}
+                  e a{' '}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTermsModalMode('terms');
+                      setIsTermsModalOpen(true);
+                    }}
+                    className="text-black dark:text-white font-bold underline hover:opacity-80"
+                  >
+                    Política de Privacidade
+                  </button>
+                  .
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Classic Sober Small Submit Button */}
           <button

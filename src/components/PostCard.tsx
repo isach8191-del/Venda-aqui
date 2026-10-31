@@ -12,7 +12,9 @@ import {
   Trash2,
   Tag,
   Star,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert,
+  Ban
 } from 'lucide-react';
 import { DEFAULT_AVATAR, DEFAULT_COVER } from '../data/seedData';
 import { ReviewModal } from './ReviewModal';
@@ -24,6 +26,7 @@ interface PostCardProps {
 export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const { 
     user, 
+    isAdmin,
     toggleLikePost, 
     setActiveCommentsPost, 
     setActiveOfferPost, 
@@ -31,6 +34,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     deletePost,
     openUserProfile,
     markPostAsCompleted,
+    setActiveReportTarget,
+    blockUser,
     showToast 
   } = useApp();
 
@@ -208,10 +213,39 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             >
               <Share2 className="w-4 h-4 stroke-[1.75]" />
             </button>
+
+            {!isOwner && (
+              <button
+                onClick={() => setActiveReportTarget({
+                  targetType: 'post',
+                  targetId: post.id,
+                  targetTitle: post.title,
+                  targetUserId: post.sellerId || post.seller.id,
+                })}
+                className="p-1 text-neutral-400 hover:text-red-600 transition-colors"
+                title="Denunciar anúncio"
+              >
+                <ShieldAlert className="w-4 h-4 stroke-[1.75]" />
+              </button>
+            )}
           </div>
 
           {/* Action buttons: Classic, small, sober */}
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Eliminar anúncio como Administrador?')) {
+                    deletePost(post.id);
+                  }
+                }}
+                className="py-1 px-2 rounded-none border border-neutral-300 dark:border-neutral-700 hover:border-red-600 hover:text-red-600 text-[10px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 flex items-center gap-1"
+                title="Eliminar anúncio (Admin)"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Apagar</span>
+              </button>
+            )}
             {post.status === 'vendido' && (
               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
                 Concluído / Vendido

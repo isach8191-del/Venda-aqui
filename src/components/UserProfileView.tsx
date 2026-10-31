@@ -14,7 +14,9 @@ import {
   Calendar,
   Share2,
   CheckCircle,
-  MessageSquare
+  MessageSquare,
+  ShieldAlert,
+  Ban
 } from 'lucide-react';
 import { DEFAULT_COVER, DEFAULT_AVATAR } from '../data/seedData';
 
@@ -27,6 +29,8 @@ export const UserProfileView: React.FC = () => {
     setIsEditProfileOpen,
     setActiveTab,
     fetchSellerReviews,
+    setActiveReportTarget,
+    blockUser,
     showToast 
   } = useApp();
 
@@ -168,6 +172,29 @@ export const UserProfileView: React.FC = () => {
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
                     <span>Enviar Mensagem</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveReportTarget({
+                      targetType: 'user',
+                      targetId: selectedProfileUser.id,
+                      targetTitle: selectedProfileUser.name,
+                      targetUserId: selectedProfileUser.id,
+                    })}
+                    className="py-1.5 px-2.5 rounded-sm border border-neutral-300 dark:border-neutral-700 hover:border-red-600 hover:text-red-600 text-xs font-semibold text-neutral-600 dark:text-neutral-400 transition-colors flex items-center gap-1"
+                    title="Denunciar este utilizador"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Denunciar</span>
+                  </button>
+
+                  <button
+                    onClick={() => blockUser(selectedProfileUser.id)}
+                    className="py-1.5 px-2.5 rounded-sm border border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white text-xs font-semibold text-neutral-600 dark:text-neutral-400 transition-colors flex items-center gap-1"
+                    title="Bloquear utilizador"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Bloquear</span>
                   </button>
                 </>
               )}

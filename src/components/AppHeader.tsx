@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Moon, Sun, User as UserIcon } from 'lucide-react';
+import { Plus, Moon, Sun } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 
 export const AppHeader: React.FC = () => {
@@ -22,51 +22,47 @@ export const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b backdrop-blur-md bg-white/95 dark:bg-black/95 border-neutral-200 dark:border-neutral-800 transition-colors duration-200">
-      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between gap-3 sm:gap-6">
+    <header className="fixed top-0 left-0 right-0 z-40 w-full bg-white dark:bg-black border-b border-neutral-300 dark:border-neutral-800 shadow-none rounded-none h-13 transition-colors duration-150">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 h-full flex items-center justify-between gap-3">
         
         {/* 1. Encima do lado esquerdo: O nome do app VENDA AQUI */}
         <div className="flex items-center gap-2 shrink-0">
           <button 
             onClick={() => setActiveTab('feed')}
-            className="flex items-center gap-2 text-left focus:outline-none group"
+            className="flex items-center gap-2 text-left focus:outline-none group rounded-none"
             aria-label="Página inicial VENDA AQUI"
           >
-            <div className="w-7 h-7 rounded-xs border border-black dark:border-white bg-black dark:bg-white flex items-center justify-center font-black text-white dark:text-black text-xs tracking-tighter">
+            <div className="w-6 h-6 rounded-none border border-black dark:border-white bg-black dark:bg-white flex items-center justify-center font-black text-white dark:text-black text-[11px] tracking-tight">
               VA
             </div>
             <div className="flex flex-col">
-              <span className="font-extrabold text-sm sm:text-base tracking-tight uppercase text-black dark:text-white leading-none">
+              <span className="font-extrabold text-xs sm:text-sm tracking-tight uppercase text-black dark:text-white leading-none">
                 VENDA AQUI
               </span>
-              <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-semibold">
+              <span className="text-[8px] uppercase tracking-widest text-neutral-500 font-semibold mt-0.5">
                 Rede Social
               </span>
             </div>
           </button>
         </div>
 
-        {/* 2. No meio de cima: Espaço para publicar */}
-        <div className="flex-1 max-w-sm mx-auto">
+        {/* 2. No topo: Botão único clássico "Publicar" */}
+        <div className="flex-1 flex justify-center max-w-xs">
           <button
             onClick={() => setIsCreatePostModalOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-700 bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-850 text-left transition-colors"
-            aria-label="Publicar novo produto"
+            className="py-1 px-3.5 bg-black dark:bg-white text-white dark:text-black rounded-none text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-none"
+            aria-label="Publicar novo anúncio"
           >
-            <span className="text-xs text-neutral-600 dark:text-neutral-400 font-medium truncate">
-              O que você quer vender?
-            </span>
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-black dark:bg-white text-white dark:text-black rounded-xs ml-2">
-              Publicar
-            </span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Publicar</span>
           </button>
         </div>
 
-        {/* 3. Lado direito: Tema e Perfil Estilo Facebook */}
+        {/* 3. Lado direito: Tema e Perfil */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={toggleTheme}
-            className="p-1.5 rounded-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-transparent hover:border-neutral-200 dark:hover:border-neutral-800 transition-colors"
+            className="p-1.5 rounded-none text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-transparent hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
             title={`Alternar tema: atualmente ${theme === 'light' ? 'Branco' : 'Preto'}`}
             aria-label="Alternar tema preto e branco"
           >
@@ -80,15 +76,15 @@ export const AppHeader: React.FC = () => {
           {user && (
             <button
               onClick={() => openUserProfile(user)}
-              className="flex items-center gap-1.5 py-0.5 px-1 rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
+              className="flex items-center gap-1.5 py-0.5 px-1 rounded-none hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
               title="Abrir o meu perfil estilo Facebook"
             >
               <img
                 src={user.avatar || DEFAULT_AVATAR}
                 alt={user.name}
-                className="w-7 h-7 rounded-full object-cover border border-neutral-400 dark:border-neutral-600"
+                className="w-6 h-6 rounded-none object-cover border border-neutral-400 dark:border-neutral-600"
               />
-              <span className="text-xs font-semibold text-black dark:text-white hidden sm:inline-block max-w-[80px] truncate">
+              <span className="text-xs font-semibold text-black dark:text-white hidden sm:inline-block max-w-[70px] truncate">
                 {user.name.split(' ')[0]}
               </span>
             </button>

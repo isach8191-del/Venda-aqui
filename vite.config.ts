@@ -4,9 +4,9 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
-return {
-  base: '/Venda-aqui/',
-  plugins: [react(), tailwindcss()],
+  return {
+    base: process.env.GITHUB_ACTIONS === 'true' ? '/Venda-aqui/' : '/',
+    plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
