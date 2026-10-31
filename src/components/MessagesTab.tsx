@@ -95,30 +95,30 @@ export const MessagesTab: React.FC = () => {
           </div>
 
           {/* Quick reply chips */}
-          <div className="px-3 py-1.5 bg-neutral-100/70 dark:bg-neutral-900/40 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2 overflow-x-auto text-[11px] no-scrollbar">
+          <div className="px-3 py-1.5 bg-neutral-100/70 dark:bg-neutral-900/40 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-1.5 overflow-x-auto text-[10px] no-scrollbar">
             <span className="text-neutral-400 shrink-0">Perguntas rápidas:</span>
             <button
               onClick={() => handleQuickQuestion('Ainda está disponível para venda?')}
-              className="px-2.5 py-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-full hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300"
+              className="py-0.5 px-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-sm hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300 transition-colors"
             >
               Ainda disponível?
             </button>
             <button
               onClick={() => handleQuickQuestion('Faz desconto para pagamento à vista no PIX?')}
-              className="px-2.5 py-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-full hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300"
+              className="py-0.5 px-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-sm hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300 transition-colors"
             >
               Aceita PIX à vista?
             </button>
             <button
               onClick={() => handleQuickQuestion('Pode enviar mais fotos do produto?')}
-              className="px-2.5 py-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-full hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300"
+              className="py-0.5 px-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-sm hover:border-black dark:hover:border-white whitespace-nowrap text-neutral-700 dark:text-neutral-300 transition-colors"
             >
               Mais fotos?
             </button>
           </div>
 
           {/* Messages list */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
             {activeConversation.messages.map((msg) => {
               const isMine = msg.isMine || msg.senderId === user?.id;
               return (
@@ -127,17 +127,17 @@ export const MessagesTab: React.FC = () => {
                   className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${
+                    className={`max-w-[80%] rounded-sm px-3 py-1.5 text-xs leading-relaxed ${
                       isMine
-                        ? 'bg-black text-white dark:bg-white dark:text-black rounded-tr-none'
-                        : 'bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-800 rounded-tl-none'
+                        ? 'bg-black text-white dark:bg-white dark:text-black'
+                        : 'bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-800'
                     }`}
                   >
                     {msg.text}
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-neutral-400">
+                  <div className="flex items-center gap-1 mt-0.5 px-1 text-[9px] text-neutral-400">
                     <span>{msg.timestamp}</span>
-                    {isMine && <CheckCheck className="w-3 h-3 text-neutral-400" />}
+                    {isMine && <CheckCheck className="w-2.5 h-2.5 text-neutral-400" />}
                   </div>
                 </div>
               );
@@ -147,22 +147,23 @@ export const MessagesTab: React.FC = () => {
           {/* Send Bar */}
           <form
             onSubmit={handleSend}
-            className="p-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center gap-2 bg-white dark:bg-neutral-950"
+            className="p-2.5 border-t border-neutral-200 dark:border-neutral-800 flex items-center gap-2 bg-white dark:bg-neutral-950"
           >
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Digite sua mensagem sobre a compra ou venda..."
-              className="flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+              className="flex-1 px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
             />
             <button
               type="submit"
               disabled={!inputText.trim()}
-              className="p-2.5 bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity disabled:opacity-40"
+              className="py-1.5 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center gap-1 text-xs font-bold uppercase tracking-wider"
               aria-label="Enviar mensagem"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3 h-3" />
+              <span>Enviar</span>
             </button>
           </form>
 

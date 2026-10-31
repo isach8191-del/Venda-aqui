@@ -1,47 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCondition, ProductCategory } from '../types';
+import { PRODUCT_CATEGORIES } from './FeedTab';
 import { 
   X, 
   Upload, 
   Sparkles, 
   RefreshCw, 
-  Image as ImageIcon, 
-  Check, 
+  Camera, 
   AlertCircle 
 } from 'lucide-react';
-
-const PRESET_IMAGES = [
-  {
-    label: 'Câmera Vintage',
-    url: '/src/assets/images/camera_vintage_product_1793448335020.jpg',
-  },
-  {
-    label: 'Tênis Streetwear',
-    url: '/src/assets/images/sneakers_streetwear_product_1793448335525.jpg',
-  },
-  {
-    label: 'Smartwatch Black',
-    url: '/src/assets/images/smartwatch_tech_product_1793448336537.jpg',
-  },
-  {
-    label: 'Headphone Studio',
-    url: '/src/assets/images/headphones_audio_product_1793448337279.jpg',
-  },
-  {
-    label: 'Guitarra Fender',
-    url: '/src/assets/images/guitar_electric_product_1793448336729.jpg',
-  },
-];
-
-const CATEGORIES: ProductCategory[] = [
-  'Eletrônicos & Tech',
-  'Moda & Calçados',
-  'Música & Áudio',
-  'Casa & Design',
-  'Fotografia',
-  'Outros',
-];
 
 export const CreatePostModal: React.FC = () => {
   const { isCreatePostModalOpen, setIsCreatePostModalOpen, createPost, user } = useApp();
@@ -51,159 +19,184 @@ export const CreatePostModal: React.FC = () => {
   const [condition, setCondition] = useState<ProductCondition>('novo');
   const [category, setCategory] = useState<ProductCategory>('Eletrônicos & Tech');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(user?.location || 'São Paulo, SP');
-  const [selectedImage, setSelectedImage] = useState<string>(PRESET_IMAGES[0].url);
-  const [customImageLoading, setCustomImageLoading] = useState(false);
+  const [location, setLocation] = useState(user?.location || 'Lisboa, Portugal');
+  
+  // Real image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isCreatePostModalOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('A imagem deve ter menos de 5MB');
+      if (file.size > 8 * 1024 * 1024) {
+        setError('A fotografia do anúncio deve ter menos de 8MB');
         return;
       }
-      setCustomImageLoading(true);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setSelectedImage(event.target.result as string);
-          setCustomImageLoading(false);
-          setError(null);
-        }
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setError(null);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError('Informe o título do produto');
+      setError('Por favor informe o título do produto');
       return;
     }
     const numPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
     if (!numPrice || numPrice <= 0) {
-      setError('Informe um preço válido');
+      setError('Por favor informe um preço válido');
       return;
     }
     if (!description.trim()) {
-      setError('Descreva as condições e detalhes do produto');
+      setError('Descreva o estado e características do produto');
       return;
     }
-    if (!selectedImage) {
-      setError('Selecione ou carregue uma foto do produto');
+    if (!imageFile && !imagePreview) {
+      setError('Por favor carregue pelo menos uma fotografia do produto');
       return;
     }
 
-    createPost({
-      title: title.trim(),
-      price: numPrice,
-      condition,
-      category,
-      description: description.trim(),
-      image: selectedImage,
-      location: location.trim(),
-    });
-
-    // Reset fields
-    setTitle('');
-    setPrice('');
-    setDescription('');
+    setLoading(true);
     setError(null);
+
+    try {
+      await createPost({
+        title: title.trim(),
+        price: numPrice,
+        condition,
+        category,
+        description: description.trim(),
+        imageFile,
+        imagePreviewUrl: imagePreview || undefined,
+        location: location.trim(),
+      });
+
+      // Reset
+      setTitle('');
+      setPrice('');
+      setDescription('');
+      setImageFile(null);
+      setImagePreview(null);
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao publicar anúncio.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-lg bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-sm shadow-2xl flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+        <div className="p-3.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-black text-xs">
+            <div className="w-5 h-5 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-black text-[10px] rounded-xs">
               VA
             </div>
-            <h2 className="font-extrabold text-base text-black dark:text-white uppercase tracking-tight">
-              Publicar no VENDA AQUI
+            <h2 className="font-bold text-xs sm:text-sm text-black dark:text-white uppercase tracking-tight">
+              Novo Anúncio no VENDA AQUI
             </h2>
           </div>
           <button
             onClick={() => setIsCreatePostModalOpen(false)}
-            className="p-1.5 text-neutral-400 hover:text-black dark:hover:text-white transition-colors"
+            className="p-1 text-neutral-400 hover:text-black dark:hover:text-white transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 text-xs">
           {error && (
-            <div className="p-3 bg-neutral-100 dark:bg-neutral-900 border border-neutral-400 dark:border-neutral-700 text-xs text-black dark:text-white flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <div className="p-2.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs text-black dark:text-white flex items-center gap-2 rounded-sm">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
 
           {/* 1. Condição: NOVO ou USADO */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
               Condição do Produto *
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setCondition('novo')}
-                className={`py-3 px-3 text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                className={`py-2 px-3 text-xs font-semibold rounded-sm border transition-all flex items-center justify-center gap-1.5 ${
                   condition === 'novo'
                     ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
+                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
                 }`}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5" />
                 <span>Produto Novo</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCondition('usado')}
-                className={`py-3 px-3 text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                className={`py-2 px-3 text-xs font-semibold rounded-sm border transition-all flex items-center justify-center gap-1.5 ${
                   condition === 'usado'
                     ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
+                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white'
                 }`}
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>Produto Usado</span>
               </button>
             </div>
           </div>
 
-          {/* 2. Título */}
+          {/* 2. Categoria do Produto */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
+              Categoria *
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ProductCategory)}
+              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
+            >
+              {PRODUCT_CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. Título */}
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
               Título do Anúncio *
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Câmera Analógica 35mm com lente original"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-sm focus:outline-none focus:border-black dark:focus:border-white"
+              placeholder="Ex: iPhone 13 Pro 128GB Grafite com caixa"
+              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
             />
           </div>
 
-          {/* 3. Preço & Categoria */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 4. Preço e Localização */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
                 Preço (R$) *
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-500">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400 font-mono">
                   R$
                 </span>
                 <input
@@ -212,129 +205,95 @@ export const CreatePostModal: React.FC = () => {
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="0,00"
                   step="any"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white font-mono text-sm focus:outline-none focus:border-black dark:focus:border-white"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
-                Categoria *
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
+                Cidade / Estado
               </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ProductCategory)}
-                className="w-full px-3 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-sm focus:outline-none focus:border-black dark:focus:border-white"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Ex: São Paulo, SP ou Lisboa"
+                className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white"
+              />
             </div>
           </div>
 
-          {/* 4. Foto do Produto */}
+          {/* 5. Fotografia Real do Produto */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
-              Foto do Produto *
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
+              Fotografia do Produto *
             </label>
 
-            {/* Preview da foto selecionada */}
-            <div className="relative aspect-[16/9] w-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-lg overflow-hidden mb-2.5 flex items-center justify-center">
-              {selectedImage ? (
-                <img
-                  src={selectedImage}
-                  alt="Pré-visualização"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center text-neutral-400 text-xs">
-                  Nenhuma imagem selecionada
-                </div>
-              )}
-            </div>
-
-            {/* Presets rápidos ou Upload */}
             <div className="space-y-2">
-              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
-                Escolha uma foto de exemplo ou faça upload do seu aparelho:
-              </span>
-
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {PRESET_IMAGES.map((preset) => (
+              {imagePreview ? (
+                <div className="relative aspect-[16/9] w-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-sm overflow-hidden flex items-center justify-center">
+                  <img
+                    src={imagePreview}
+                    alt="Pré-visualização do produto"
+                    className="w-full h-full object-cover"
+                  />
                   <button
-                    key={preset.url}
                     type="button"
-                    onClick={() => setSelectedImage(preset.url)}
-                    className={`relative shrink-0 w-14 h-14 rounded-md overflow-hidden border-2 transition-all ${
-                      selectedImage === preset.url
-                        ? 'border-black dark:border-white scale-105'
-                        : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
-                    title={preset.label}
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                    }}
+                    className="absolute top-2 right-2 p-1 bg-black/80 hover:bg-black text-white rounded-sm text-xs"
                   >
-                    <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
-                    {selectedImage === preset.url && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-                        <Check className="w-4 h-4 stroke-[3]" />
-                      </div>
-                    )}
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                ))}
-              </div>
+                </div>
+              ) : null}
 
-              {/* Botão de Upload Personalizado */}
-              <label className="flex items-center justify-center gap-2 py-2 px-3 border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 cursor-pointer transition-colors">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Carregar Foto do Computador / Celular</span>
+              <label className="flex items-center justify-center gap-2 py-3 px-3 border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer transition-colors bg-neutral-50/50 dark:bg-neutral-900/50">
+                <Camera className="w-4 h-4 text-neutral-500" />
+                <span>Tirar Foto ou Escolher da Galeria</span>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleFileUpload}
+                  onChange={handleImageChange}
                   className="hidden"
                 />
               </label>
             </div>
           </div>
 
-          {/* 5. Descrição */}
+          {/* 6. Descrição */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">
               Descrição Detalhada *
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Descreva detalhes, estado de conservação, tempo de uso, o que acompanha, forma de entrega..."
-              className="w-full px-3.5 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-sm focus:outline-none focus:border-black dark:focus:border-white resize-none"
+              placeholder="Descreva detalhes, acessórios incluídos, tempo de uso e como prefere fazer a entrega..."
+              className="w-full px-3 py-1.5 rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-xs focus:outline-none focus:border-black dark:focus:border-white resize-none"
             />
           </div>
 
-          {/* 6. Localização */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1.5">
-              Cidade / Estado
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ex: São Paulo, SP"
-              className="w-full px-3.5 py-2 rounded-lg border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-sm focus:outline-none focus:border-black dark:focus:border-white"
-            />
-          </div>
+          {/* Bottom Actions: Classic, small sober buttons */}
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={() => setIsCreatePostModalOpen(false)}
+              className="py-1.5 px-3 rounded-sm border border-neutral-300 dark:border-neutral-700 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:border-black dark:hover:border-white transition-colors"
+            >
+              Cancelar
+            </button>
 
-          {/* Botão de Envio */}
-          <div className="pt-2">
             <button
               type="submit"
-              disabled={customImageLoading}
-              className="w-full py-3 bg-black dark:bg-white text-white dark:text-black font-extrabold uppercase tracking-widest text-xs hover:opacity-90 transition-opacity"
+              disabled={loading}
+              className="py-1.5 px-4 rounded-sm bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              Publicar Agora no VENDA AQUI
+              {loading ? 'A publicar...' : 'Publicar Anúncio'}
             </button>
           </div>
         </form>

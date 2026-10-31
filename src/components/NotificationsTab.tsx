@@ -42,12 +42,12 @@ export const NotificationsTab: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+    <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
+      <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2.5">
         <div className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-black dark:text-white" />
-          <h1 className="text-base font-extrabold uppercase tracking-tight text-black dark:text-white">
+          <Bell className="w-4 h-4 text-black dark:text-white" />
+          <h1 className="text-sm font-extrabold uppercase tracking-tight text-black dark:text-white">
             Notificações
           </h1>
         </div>
@@ -62,13 +62,13 @@ export const NotificationsTab: React.FC = () => {
       </div>
 
       {/* Notifications List */}
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {notifications.length > 0 ? (
           notifications.map((notif) => (
             <div
               key={notif.id}
               onClick={() => handleClick(notif.id, notif.type)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+              className={`p-3 rounded-sm border transition-all cursor-pointer flex items-start gap-3 ${
                 notif.read
                   ? 'bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 opacity-80 hover:opacity-100'
                   : 'bg-neutral-50 dark:bg-neutral-900 border-black/40 dark:border-white/40 shadow-2xs'

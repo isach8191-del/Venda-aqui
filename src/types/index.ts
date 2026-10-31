@@ -13,17 +13,36 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email: string;
   avatar: string;
+  coverPhoto?: string;
   rating: number;
   totalSales: number;
+  reviewCount?: number;
   verified: boolean;
   bio?: string;
   location: string;
   phone?: string;
+  createdAt?: string;
+}
+
+export interface Review {
+  id: string;
+  sellerId: string;
+  buyerId: string;
+  buyerName: string;
+  buyerUsername: string;
+  buyerAvatar: string;
+  rating: number;
+  comment: string;
+  productId?: string;
+  productTitle?: string;
+  createdAt: string;
 }
 
 export interface Comment {
   id: string;
+  postId: string;
   author: User;
   text: string;
   createdAt: string;
@@ -32,6 +51,7 @@ export interface Comment {
 export interface Post {
   id: string;
   seller: User;
+  sellerId: string;
   title: string;
   price: number;
   currency: string;
@@ -40,17 +60,21 @@ export interface Post {
   description: string;
   images: string[];
   likes: number;
-  isLiked: boolean;
+  likedBy: string[];
+  isLiked?: boolean;
   comments: Comment[];
+  commentsCount?: number;
   location: string;
   createdAt: string;
   isSaved?: boolean;
   status: 'disponivel' | 'reservado' | 'vendido';
+  buyerId?: string;
   viewsCount?: number;
 }
 
 export interface Message {
   id: string;
+  conversationId?: string;
   senderId: string;
   text: string;
   timestamp: string;
@@ -60,6 +84,7 @@ export interface Message {
 
 export interface Conversation {
   id: string;
+  participantIds: string[];
   participant: User;
   product?: {
     id: string;
@@ -76,6 +101,7 @@ export interface Conversation {
 
 export interface NotificationItem {
   id: string;
+  userId: string;
   type: 'like' | 'comment' | 'message' | 'offer' | 'sale';
   title: string;
   description: string;
@@ -87,4 +113,4 @@ export interface NotificationItem {
 
 export type ThemeChoice = 'dark' | 'light' | 'pure_black';
 
-export type ActiveTab = 'feed' | 'messages' | 'notifications' | 'settings';
+export type ActiveTab = 'feed' | 'messages' | 'notifications' | 'settings' | 'profile';

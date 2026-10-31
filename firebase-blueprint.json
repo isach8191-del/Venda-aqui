@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information in the VENDA AQUI marketplace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "username": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "avatar": { "type": "string", "maxLength": 500000 },
+        "coverPhoto": { "type": "string", "maxLength": 500000 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "location": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "rating": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "username", "email"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Buyer rating and review for a seller after transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string", "maxLength": 100 },
+        "buyerUsername": { "type": "string", "maxLength": 50 },
+        "buyerAvatar": { "type": "string", "maxLength": 500000 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 500 },
+        "productId": { "type": "string" },
+        "productTitle": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "buyerId", "rating", "comment"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Product listing publication in VENDA AQUI feed",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string", "maxLength": 100 },
+        "sellerUsername": { "type": "string", "maxLength": 50 },
+        "sellerAvatar": { "type": "string", "maxLength": 500000 },
+        "sellerLocation": { "type": "string", "maxLength": 100 },
+        "sellerVerified": { "type": "boolean" },
+        "title": { "type": "string", "maxLength": 150 },
+        "price": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "condition": { "type": "string", "enum": ["novo", "usado"] },
+        "category": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "images": { "type": "array" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array" },
+        "commentsCount": { "type": "number" },
+        "location": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["disponivel", "reservado", "vendido"] },
+        "buyerId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "title", "price", "condition", "description"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User question or comment on a listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string", "maxLength": 100 },
+        "authorUsername": { "type": "string", "maxLength": 50 },
+        "authorAvatar": { "type": "string", "maxLength": 500000 },
+        "text": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "postId", "authorId", "text"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Direct chat between buyer and seller",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participantIds": { "type": "array" },
+        "productId": { "type": "string" },
+        "productTitle": { "type": "string", "maxLength": 150 },
+        "productPrice": { "type": "number" },
+        "productImage": { "type": "string", "maxLength": 500000 },
+        "lastMessage": { "type": "string", "maxLength": 500 },
+        "lastMessageTime": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "participantIds"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Single message inside a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string" },
+        "offerPrice": { "type": "number" }
+      },
+      "required": ["id", "senderId", "text"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification for likes, messages, offers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "comment", "message", "offer", "sale", "review"] },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" },
+        "postId": { "type": "string" },
+        "userAvatar": { "type": "string", "maxLength": 500000 }
+      },
+      "required": ["id", "userId", "type", "title"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile with avatar, cover photo, bio, city, listings"
+    },
+    "/users/{userId}/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Buyer reviews and star ratings left for this seller"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Real product listings created by real users"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Social comments and questions on listings"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Direct message threads between users"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages between buyers and sellers"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Notifications for a specific user"
+    }
+  }
+}

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   User, 
   Post, 
+  Comment,
   Conversation, 
   NotificationItem, 
   ThemeChoice, 
@@ -10,19 +11,47 @@ import {
   ProductCategory 
 } from '../types';
 import { 
-  CURRENT_USER, 
-  INITIAL_POSTS, 
-  INITIAL_CONVERSATIONS, 
-  INITIAL_NOTIFICATIONS 
-} from '../data/seedData';
+  auth, 
+  db, 
+  storage, 
+  googleProvider, 
+  handleFirestoreError, 
+  OperationType 
+} from '../lib/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  updateProfile
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  collection, 
+  query, 
+  onSnapshot, 
+  orderBy, 
+  addDoc, 
+  deleteDoc, 
+  where,
+  getDocs 
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { DEFAULT_AVATAR, DEFAULT_COVER } from '../data/seedData';
 
 interface AppContextType {
   user: User | null;
+  authLoading: boolean;
   theme: ThemeChoice;
   setTheme: (theme: ThemeChoice) => void;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   posts: Post[];
+  postsLoading: boolean;
   activeFilter: 'todos' | 'novo' | 'usado';
   setActiveFilter: (filter: 'todos' | 'novo' | 'usado') => void;
   activeCategory: ProductCategory;
@@ -37,35 +66,55 @@ interface AppContextType {
   unreadMessagesCount: number;
   isCreatePostModalOpen: boolean;
   setIsCreatePostModalOpen: (open: boolean) => void;
-  isLoginModalOpen: boolean;
-  setIsLoginModalOpen: (open: boolean) => void;
   activeCommentsPost: Post | null;
   setActiveCommentsPost: (post: Post | null) => void;
   activeOfferPost: Post | null;
   setActiveOfferPost: (post: Post | null) => void;
+  selectedProfileUser: User | null;
+  openUserProfile: (userOrId: User | string) => Promise<void>;
+  closeUserProfile: () => void;
+  isEditProfileOpen: boolean;
+  setIsEditProfileOpen: (open: boolean) => void;
   toastMessage: string | null;
   showToast: (msg: string) => void;
   
-  // Actions
+  // Auth Actions
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, name: string, username: string, location: string) => Promise<void>;
+  logout: () => Promise<void>;
+
+  // Marketplace Actions
   createPost: (data: {
     title: string;
     price: number;
     condition: ProductCondition;
     category: ProductCategory;
     description: string;
-    image: string;
+    imageFile?: File | null;
+    imagePreviewUrl?: string;
     location: string;
-  }) => void;
-  toggleLikePost: (postId: string) => void;
-  addComment: (postId: string, text: string) => void;
-  deletePost: (postId: string) => void;
-  sendMessage: (conversationId: string, text: string, offerPrice?: number) => void;
-  startChatWithSeller: (post: Post, initialGreeting?: string) => void;
-  markNotificationAsRead: (id: string) => void;
-  markAllNotificationsAsRead: () => void;
-  updateUserProfile: (updates: Partial<User>) => void;
-  loginUser: (user: User) => void;
-  logoutUser: () => void;
+  }) => Promise<void>;
+  toggleLikePost: (postId: string) => Promise<void>;
+  addComment: (postId: string, text: string) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
+  sendMessage: (conversationId: string, text: string, offerPrice?: number) => Promise<void>;
+  startChatWithSeller: (post: Post, initialGreeting?: string) => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  updateUserProfile: (data: {
+    name: string;
+    bio: string;
+    location: string;
+    phone?: string;
+    avatarFile?: File | null;
+    coverFile?: File | null;
+  }) => Promise<void>;
+  activeReviewTarget: { seller: User; post?: Post } | null;
+  setActiveReviewTarget: (target: { seller: User; post?: Post } | null) => void;
+  addReviewToSeller: (sellerId: string, rating: number, comment: string, productId?: string, productTitle?: string) => Promise<void>;
+  markPostAsCompleted: (postId: string) => Promise<void>;
+  fetchSellerReviews: (sellerId: string) => Promise<any[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -77,55 +126,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (saved as ThemeChoice) || 'dark';
   });
 
-  // Current User
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('venda_aqui_user');
-    return saved ? JSON.parse(saved) : CURRENT_USER;
-  });
+  // Auth & Profile State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Active Tab: Casa, Mensagens, Notificações, Definições
+  // Active Tab
   const [activeTab, setActiveTab] = useState<ActiveTab>('feed');
 
-  // Posts Feed State
-  const [posts, setPosts] = useState<Post[]>(() => {
-    const saved = localStorage.getItem('venda_aqui_posts');
-    return saved ? JSON.parse(saved) : INITIAL_POSTS;
-  });
+  // Selected Profile for Facebook-style user page
+  const [selectedProfileUser, setSelectedProfileUser] = useState<User | null>(null);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
+  // Real Marketplace Data
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'todos' | 'novo' | 'usado'>('todos');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Messages & Conversations
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    const saved = localStorage.getItem('venda_aqui_conversations');
-    return saved ? JSON.parse(saved) : INITIAL_CONVERSATIONS;
-  });
+  // Conversations & Notifications
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-
-  // Notifications
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    const saved = localStorage.getItem('venda_aqui_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
-  });
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Modals & Panels
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [activeCommentsPost, setActiveCommentsPost] = useState<Post | null>(null);
   const [activeOfferPost, setActiveOfferPost] = useState<Post | null>(null);
-
-  // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
-      setToastMessage((current) => (current === msg ? null : current));
+      setToastMessage((cur) => (cur === msg ? null : cur));
     }, 3200);
   };
 
-  // Sync theme with DOM
+  // Sync theme
   useEffect(() => {
     localStorage.setItem('venda_aqui_theme', theme);
     const root = document.documentElement;
@@ -141,186 +178,439 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [theme]);
 
-  // Sync posts with localStorage
-  useEffect(() => {
-    localStorage.setItem('venda_aqui_posts', JSON.stringify(posts));
-  }, [posts]);
-
-  // Sync conversations with localStorage
-  useEffect(() => {
-    localStorage.setItem('venda_aqui_conversations', JSON.stringify(conversations));
-  }, [conversations]);
-
-  // Sync notifications with localStorage
-  useEffect(() => {
-    localStorage.setItem('venda_aqui_notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
-  // Sync user with localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('venda_aqui_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('venda_aqui_user');
-    }
-  }, [user]);
-
   const setTheme = (newTheme: ThemeChoice) => {
     setThemeState(newTheme);
-    showToast(`Tema alterado para: ${newTheme === 'dark' ? 'Preto Clássico' : newTheme === 'pure_black' ? 'Preto Puro (OLED)' : 'Branco Minimalista'}`);
+    showToast(`Tema: ${newTheme === 'dark' ? 'Preto Clássico' : newTheme === 'pure_black' ? 'Preto Puro OLED' : 'Branco Minimalista'}`);
   };
 
-  const loginUser = (newUser: User) => {
-    setUser(newUser);
-    setIsLoginModalOpen(false);
-    showToast(`Bem-vindo, ${newUser.name}!`);
+  // Firebase Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const snap = await getDoc(userDocRef);
+
+          if (snap.exists()) {
+            const data = snap.data();
+            setUser({
+              id: firebaseUser.uid,
+              name: data.name || firebaseUser.displayName || 'Utilizador',
+              username: data.username || firebaseUser.email?.split('@')[0] || 'vendedor',
+              email: firebaseUser.email || '',
+              avatar: data.avatar || firebaseUser.photoURL || DEFAULT_AVATAR,
+              coverPhoto: data.coverPhoto || DEFAULT_COVER,
+              rating: data.rating ?? 5.0,
+              totalSales: data.totalSales ?? 0,
+              verified: data.verified ?? true,
+              bio: data.bio ?? 'Vendedor no VENDA AQUI.',
+              location: data.location ?? 'Portugal / Brasil',
+              phone: data.phone ?? '',
+              createdAt: data.createdAt ?? new Date().toISOString(),
+            });
+          } else {
+            // First time login - create user document
+            const newUser: User = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || 'Utilizador',
+              username: (firebaseUser.email?.split('@')[0] || 'vendedor').replace(/[^a-zA-Z0-9_]/g, ''),
+              email: firebaseUser.email || '',
+              avatar: firebaseUser.photoURL || DEFAULT_AVATAR,
+              coverPhoto: DEFAULT_COVER,
+              rating: 5.0,
+              totalSales: 0,
+              verified: true,
+              bio: 'Vendedor no VENDA AQUI.',
+              location: 'Portugal / Brasil',
+              phone: '',
+              createdAt: new Date().toISOString(),
+            };
+            await setDoc(userDocRef, newUser);
+            setUser(newUser);
+          }
+        } catch (err) {
+          console.error('Error fetching user profile:', err);
+        }
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to Real Posts from Firestore
+  useEffect(() => {
+    if (!user) {
+      setPosts([]);
+      setPostsLoading(false);
+      return;
+    }
+
+    setPostsLoading(true);
+    const postsQuery = query(collection(db, 'posts'));
+    const unsubscribe = onSnapshot(
+      postsQuery,
+      (snapshot) => {
+        const loadedPosts: Post[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          const seller: User = {
+            id: data.sellerId,
+            name: data.sellerName || 'Vendedor',
+            username: data.sellerUsername || 'vendedor',
+            email: data.sellerEmail || '',
+            avatar: data.sellerAvatar || DEFAULT_AVATAR,
+            coverPhoto: data.sellerCoverPhoto || DEFAULT_COVER,
+            rating: data.sellerRating || 5.0,
+            totalSales: data.sellerTotalSales || 0,
+            verified: data.sellerVerified ?? true,
+            location: data.sellerLocation || data.location || 'Local não informado',
+          };
+
+          const likedByArray: string[] = Array.isArray(data.likedBy) ? data.likedBy : [];
+          const isLiked = user ? likedByArray.includes(user.id) : false;
+
+          return {
+            id: docSnap.id,
+            seller,
+            sellerId: data.sellerId,
+            title: data.title,
+            price: Number(data.price) || 0,
+            currency: data.currency || 'R$',
+            condition: data.condition || 'usado',
+            category: data.category || 'Outros',
+            description: data.description || '',
+            images: Array.isArray(data.images) && data.images.length > 0 ? data.images : [DEFAULT_COVER],
+            likes: Number(data.likes) || likedByArray.length,
+            likedBy: likedByArray,
+            isLiked,
+            comments: [],
+            commentsCount: Number(data.commentsCount) || 0,
+            location: data.location || seller.location,
+            createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Recente',
+            status: data.status || 'disponivel',
+          };
+        });
+
+        // Sort descending by id or timestamp
+        loadedPosts.sort((a, b) => b.id.localeCompare(a.id));
+        setPosts(loadedPosts);
+        setPostsLoading(false);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'posts');
+        setPostsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Auth Handlers
+  const signInWithGoogle = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      showToast('Login com Google realizado com sucesso!');
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      showToast(error.message || 'Erro ao entrar com Google');
+    }
   };
 
-  const logoutUser = () => {
+  const signInWithEmail = async (email: string, pass: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      showToast('Sessão iniciada!');
+    } catch (error: any) {
+      console.error('Email sign in error:', error);
+      let msg = 'Erro ao entrar';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        msg = 'E-mail ou senha inválidos.';
+      } else if (error.code === 'auth/invalid-email') {
+        msg = 'Formato de e-mail inválido.';
+      }
+      showToast(msg);
+      throw error;
+    }
+  };
+
+  const signUpWithEmail = async (
+    email: string, 
+    pass: string, 
+    name: string, 
+    username: string, 
+    location: string
+  ) => {
+    try {
+      const res = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(res.user, { displayName: name });
+
+      const newUser: User = {
+        id: res.user.uid,
+        name,
+        username: username.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''),
+        email,
+        avatar: DEFAULT_AVATAR,
+        coverPhoto: DEFAULT_COVER,
+        rating: 5.0,
+        totalSales: 0,
+        verified: true,
+        bio: 'Vendedor no VENDA AQUI.',
+        location: location || 'Portugal / Brasil',
+        phone: '',
+        createdAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, 'users', res.user.uid), newUser);
+      setUser(newUser);
+      showToast('Conta criada com sucesso no VENDA AQUI!');
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      let msg = 'Erro ao registar conta';
+      if (error.code === 'auth/email-already-in-use') {
+        msg = 'Este e-mail já está em uso.';
+      } else if (error.code === 'auth/weak-password') {
+        msg = 'A senha deve conter pelo menos 6 caracteres.';
+      }
+      showToast(msg);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    await firebaseSignOut(auth);
     setUser(null);
-    showToast('Sessão encerrada com sucesso.');
+    setSelectedProfileUser(null);
+    showToast('Sessão terminada.');
   };
 
-  const updateUserProfile = (updates: Partial<User>) => {
+  // Helper to upload image file or convert to base64 safely
+  const uploadImageFile = async (file: File, folder: string): Promise<string> => {
+    try {
+      const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`);
+      const snap = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snap.ref);
+      return url;
+    } catch (err) {
+      console.warn('Storage upload failed, falling back to base64 data URL:', err);
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  // Open User Profile (Facebook style)
+  const openUserProfile = async (userOrId: User | string) => {
+    if (typeof userOrId === 'object') {
+      setSelectedProfileUser(userOrId);
+      setActiveTab('profile');
+      return;
+    }
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userOrId));
+      if (userDoc.exists()) {
+        setSelectedProfileUser(userDoc.data() as User);
+        setActiveTab('profile');
+      }
+    } catch (err) {
+      console.error('Error fetching profile user:', err);
+    }
+  };
+
+  const closeUserProfile = () => {
+    setSelectedProfileUser(null);
+    setActiveTab('feed');
+  };
+
+  // Update user profile in Firestore
+  const updateUserProfile = async (data: {
+    name: string;
+    bio: string;
+    location: string;
+    phone?: string;
+    avatarFile?: File | null;
+    coverFile?: File | null;
+  }) => {
     if (!user) return;
-    const updated = { ...user, ...updates };
-    setUser(updated);
-    showToast('Perfil atualizado com sucesso!');
+
+    let newAvatar = user.avatar;
+    let newCover = user.coverPhoto || DEFAULT_COVER;
+
+    if (data.avatarFile) {
+      newAvatar = await uploadImageFile(data.avatarFile, `users/${user.id}/avatars`);
+    }
+
+    if (data.coverFile) {
+      newCover = await uploadImageFile(data.coverFile, `users/${user.id}/covers`);
+    }
+
+    const updatedData = {
+      name: data.name,
+      bio: data.bio,
+      location: data.location,
+      phone: data.phone || '',
+      avatar: newAvatar,
+      coverPhoto: newCover,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await updateDoc(doc(db, 'users', user.id), updatedData);
+      const updatedUser = { ...user, ...updatedData };
+      setUser(updatedUser);
+      if (selectedProfileUser && selectedProfileUser.id === user.id) {
+        setSelectedProfileUser(updatedUser);
+      }
+      setIsEditProfileOpen(false);
+      showToast('Perfil atualizado com sucesso!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.id}`);
+    }
   };
 
-  const createPost = (data: {
+  // Create real post in Firestore
+  const createPost = async (data: {
     title: string;
     price: number;
     condition: ProductCondition;
     category: ProductCategory;
     description: string;
-    image: string;
+    imageFile?: File | null;
+    imagePreviewUrl?: string;
     location: string;
   }) => {
-    const author: User = user || CURRENT_USER;
-    const newPost: Post = {
-      id: `post_${Date.now()}`,
-      seller: author,
+    if (!user) return;
+
+    let imageUrl = data.imagePreviewUrl || DEFAULT_COVER;
+
+    if (data.imageFile) {
+      imageUrl = await uploadImageFile(data.imageFile, `posts/${user.id}`);
+    }
+
+    const newPostData = {
+      sellerId: user.id,
+      sellerName: user.name,
+      sellerUsername: user.username,
+      sellerAvatar: user.avatar,
+      sellerLocation: data.location || user.location,
+      sellerVerified: user.verified,
       title: data.title,
       price: data.price,
       currency: 'R$',
       condition: data.condition,
       category: data.category,
       description: data.description,
-      images: [data.image],
-      likes: 1,
-      isLiked: true,
-      comments: [],
-      location: data.location || author.location,
-      createdAt: 'Agora mesmo',
+      images: [imageUrl],
+      likes: 0,
+      likedBy: [],
+      commentsCount: 0,
+      location: data.location || user.location,
       status: 'disponivel',
-      viewsCount: 1,
+      createdAt: new Date().toISOString(),
     };
 
-    setPosts([newPost, ...posts]);
-    setIsCreatePostModalOpen(false);
-    showToast('Publicação criada com sucesso no VENDA AQUI!');
-    setActiveTab('feed');
+    try {
+      await addDoc(collection(db, 'posts'), newPostData);
+      setIsCreatePostModalOpen(false);
+      showToast('Publicação criada no VENDA AQUI!');
+      setActiveTab('feed');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'posts');
+    }
   };
 
-  const toggleLikePost = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id === postId) {
-          const isLiked = !p.isLiked;
-          const likes = isLiked ? p.likes + 1 : Math.max(0, p.likes - 1);
-          return { ...p, isLiked, likes };
-        }
-        return p;
-      })
-    );
+  // Toggle like on a post in Firestore
+  const toggleLikePost = async (postId: string) => {
+    if (!user) return;
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    const hasLiked = post.likedBy.includes(user.id);
+    const updatedLikedBy = hasLiked
+      ? post.likedBy.filter((id) => id !== user.id)
+      : [...post.likedBy, user.id];
+
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        likedBy: updatedLikedBy,
+        likes: updatedLikedBy.length,
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `posts/${postId}`);
+    }
   };
 
-  const addComment = (postId: string, text: string) => {
-    if (!text.trim()) return;
-    const author: User = user || CURRENT_USER;
-    const newComment = {
-      id: `comment_${Date.now()}`,
-      author,
-      text: text.trim(),
-      createdAt: 'Agora mesmo',
-    };
+  // Add comment in subcollection
+  const addComment = async (postId: string, text: string) => {
+    if (!user || !text.trim()) return;
 
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            comments: [...p.comments, newComment],
-          };
-        }
-        return p;
-      })
-    );
+    try {
+      await addDoc(collection(db, 'posts', postId, 'comments'), {
+        postId,
+        authorId: user.id,
+        authorName: user.name,
+        authorUsername: user.username,
+        authorAvatar: user.avatar,
+        text: text.trim(),
+        createdAt: new Date().toISOString(),
+      });
 
-    // Update activeCommentsPost if open
-    setActiveCommentsPost((prev) =>
-      prev && prev.id === postId
-        ? { ...prev, comments: [...prev.comments, newComment] }
-        : prev
-    );
+      const post = posts.find((p) => p.id === postId);
+      if (post) {
+        await updateDoc(doc(db, 'posts', postId), {
+          commentsCount: (post.commentsCount || 0) + 1,
+        });
+      }
 
-    showToast('Comentário publicado!');
+      showToast('Comentário publicado!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `posts/${postId}/comments`);
+    }
   };
 
-  const deletePost = (postId: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
-    showToast('Publicação removida.');
+  // Delete post from Firestore
+  const deletePost = async (postId: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'posts', postId));
+      showToast('Publicação removida com sucesso.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `posts/${postId}`);
+    }
   };
 
-  const sendMessage = (conversationId: string, text: string, offerPrice?: number) => {
-    if (!text.trim() && !offerPrice) return;
-    const sender = user || CURRENT_USER;
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
+  // Chat and messaging
+  const sendMessage = async (conversationId: string, text: string, offerPrice?: number) => {
+    if (!user || (!text.trim() && !offerPrice)) return;
     const newMsg = {
       id: `msg_${Date.now()}`,
-      senderId: sender.id,
+      senderId: user.id,
       text: text.trim() || `Proposta de ${offerPrice ? 'R$ ' + offerPrice.toLocaleString('pt-BR') : ''}`,
-      timestamp: timeStr,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       isMine: true,
       offerPrice,
     };
 
     setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id === conversationId) {
-          return {
-            ...conv,
-            lastMessage: newMsg.text,
-            lastMessageTime: 'Agora',
-            messages: [...conv.messages, newMsg],
-          };
-        }
-        return conv;
-      })
+      prev.map((c) =>
+        c.id === conversationId
+          ? {
+              ...c,
+              lastMessage: newMsg.text,
+              lastMessageTime: 'Agora',
+              messages: [...c.messages, newMsg],
+            }
+          : c
+      )
     );
-
-    // If it was an offer, send notification
-    if (offerPrice) {
-      const conv = conversations.find((c) => c.id === conversationId);
-      if (conv) {
-        const notif: NotificationItem = {
-          id: `notif_${Date.now()}`,
-          type: 'offer',
-          title: `Proposta de R$ ${offerPrice.toLocaleString('pt-BR')}`,
-          description: `Você enviou uma proposta para ${conv.participant.name}.`,
-          time: 'Agora',
-          read: true,
-          userAvatar: conv.participant.avatar,
-        };
-        setNotifications((prev) => [notif, ...prev]);
-      }
-    }
   };
 
-  const startChatWithSeller = (post: Post, initialGreeting?: string) => {
+  const startChatWithSeller = async (post: Post, initialGreeting?: string) => {
+    if (!user) return;
     const existing = conversations.find((c) => c.participant.id === post.seller.id);
     if (existing) {
       setActiveConversationId(existing.id);
@@ -333,6 +623,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newConv: Conversation = {
       id: `conv_${Date.now()}`,
+      participantIds: [user.id, post.seller.id],
       participant: post.seller,
       product: {
         id: post.id,
@@ -347,7 +638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       messages: [
         {
           id: `msg_${Date.now()}`,
-          senderId: user?.id || 'usr_me',
+          senderId: user.id,
           text: initialGreeting || `Olá ${post.seller.name}! Tenho interesse no anúncio de ${post.title} no VENDA AQUI.`,
           timestamp: 'Agora',
           isMine: true,
@@ -360,15 +651,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('messages');
   };
 
-  const markNotificationAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const [activeReviewTarget, setActiveReviewTarget] = useState<{ seller: User; post?: Post } | null>(null);
+
+  const fetchSellerReviews = async (sellerId: string): Promise<any[]> => {
+    try {
+      const q = query(collection(db, 'users', sellerId, 'reviews'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+      console.error('Error fetching seller reviews:', err);
+      return [];
+    }
   };
 
-  const markAllNotificationsAsRead = () => {
+  const addReviewToSeller = async (
+    sellerId: string, 
+    rating: number, 
+    comment: string, 
+    productId?: string, 
+    productTitle?: string
+  ) => {
+    if (!user) return;
+
+    const reviewData = {
+      sellerId,
+      buyerId: user.id,
+      buyerName: user.name,
+      buyerUsername: user.username,
+      buyerAvatar: user.avatar,
+      rating,
+      comment,
+      productId: productId || '',
+      productTitle: productTitle || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await addDoc(collection(db, 'users', sellerId, 'reviews'), reviewData);
+
+      // Recalculate seller rating
+      const currentReviews = await fetchSellerReviews(sellerId);
+      const allRatings = [...currentReviews.map((r: any) => r.rating || 5), rating];
+      const avgRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
+
+      await updateDoc(doc(db, 'users', sellerId), {
+        rating: Math.round(avgRating * 10) / 10,
+        reviewCount: allRatings.length,
+      });
+
+      // Update selectedProfileUser if currently viewing this seller
+      if (selectedProfileUser && selectedProfileUser.id === sellerId) {
+        setSelectedProfileUser(prev => prev ? {
+          ...prev,
+          rating: Math.round(avgRating * 10) / 10,
+          reviewCount: allRatings.length,
+        } : null);
+      }
+
+      // Notify seller
+      await addDoc(collection(db, 'notifications'), {
+        userId: sellerId,
+        type: 'review',
+        title: `Nova avaliação de ${user.name}!`,
+        description: `Recebeu ${rating} estrelas: "${comment.slice(0, 80)}"`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        userAvatar: user.avatar,
+      });
+
+      showToast('Avaliação registada com sucesso!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${sellerId}/reviews`);
+    }
+  };
+
+  const markPostAsCompleted = async (postId: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        status: 'vendido',
+      });
+
+      // Increment seller total sales
+      await updateDoc(doc(db, 'users', user.id), {
+        totalSales: (user.totalSales || 0) + 1,
+      });
+
+      setUser(prev => prev ? { ...prev, totalSales: (prev.totalSales || 0) + 1 } : null);
+      showToast('Transação marcada como concluída / vendido!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `posts/${postId}`);
+    }
+  };
+
+  const markNotificationAsRead = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const markAllNotificationsAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    showToast('Todas as notificações foram marcadas como lidas.');
+    showToast('Todas as notificações foram lidas.');
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
@@ -378,11 +760,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         user,
+        authLoading,
         theme,
         setTheme,
         activeTab,
         setActiveTab,
         posts,
+        postsLoading,
         activeFilter,
         setActiveFilter,
         activeCategory,
@@ -397,14 +781,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         unreadMessagesCount,
         isCreatePostModalOpen,
         setIsCreatePostModalOpen,
-        isLoginModalOpen,
-        setIsLoginModalOpen,
         activeCommentsPost,
         setActiveCommentsPost,
         activeOfferPost,
         setActiveOfferPost,
+        selectedProfileUser,
+        openUserProfile,
+        closeUserProfile,
+        isEditProfileOpen,
+        setIsEditProfileOpen,
         toastMessage,
         showToast,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        logout,
         createPost,
         toggleLikePost,
         addComment,
@@ -414,8 +805,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         updateUserProfile,
-        loginUser,
-        logoutUser,
+        activeReviewTarget,
+        setActiveReviewTarget,
+        addReviewToSeller,
+        markPostAsCompleted,
+        fetchSellerReviews,
       }}
     >
       {children}
