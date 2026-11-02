@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Post, 
@@ -19,7 +19,6 @@ import {
 import { 
   auth, 
   db, 
-  storage, 
   googleProvider, 
   handleFirestoreError, 
   OperationType 
@@ -30,7 +29,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   doc, 
@@ -46,7 +46,7 @@ import {
   where,
   getDocs 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { compressImage, withTimeout } from '../utils/imageCompressor';
 import { DEFAULT_AVATAR, DEFAULT_COVER } from '../data/seedData';
 import { 
   LanguageCode, 
@@ -122,6 +122,7 @@ interface AppContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string, username: string, location: string, country?: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 
   // Marketplace Actions
@@ -137,6 +138,26 @@ interface AppContextType {
     location: string;
     country?: string;
   }) => Promise<void>;
+  isEditPostModalOpen: boolean;
+  setIsEditPostModalOpen: (open: boolean) => void;
+  selectedEditPost: Post | null;
+  openEditPostModal: (post: Post) => void;
+  closeEditPostModal: () => void;
+  updatePost: (
+    postId: string,
+    data: {
+      title: string;
+      price: number;
+      currency?: string;
+      condition: ProductCondition;
+      category: ProductCategory;
+      description: string;
+      imageFile?: File | null;
+      imageUrl?: string;
+      location: string;
+      country?: string;
+    }
+  ) => Promise<void>;
   toggleLikePost: (postId: string) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
@@ -231,6 +252,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isRegisteringRef = useRef(false);
+
   // Theme state
   const [theme, setThemeState] = useState<ThemeChoice>(() => {
     const saved = localStorage.getItem('venda_aqui_theme');
@@ -358,12 +381,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = {
         title: data.translatedTitle || post.title,
         description: data.translatedDescription || post.description,
-        lang: language,
       };
 
       setPostTranslations((prev) => ({
         ...prev,
-        [cacheKey]: result,
+        [cacheKey]: { ...result, lang: language },
       }));
 
       return result;
@@ -372,7 +394,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         title: post.title,
         description: post.description,
-        lang: language,
       };
     }
   };
@@ -413,6 +434,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Modals & Panels
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isEditPostModalOpen, setIsEditPostModalOpen] = useState(false);
+  const [selectedEditPost, setSelectedEditPost] = useState<Post | null>(null);
   const [activeCommentsPost, setActiveCommentsPost] = useState<Post | null>(null);
   const [activeOfferPost, setActiveOfferPost] = useState<Post | null>(null);
   const [activeReviewTarget, setActiveReviewTarget] = useState<{ seller: User; post?: Post } | null>(null);
@@ -507,6 +530,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               createdAt: data.createdAt ?? new Date().toISOString(),
             });
           } else {
+            // If actively in signUpWithEmail, let that finish creating the user document with custom details
+            if (isRegisteringRef.current) {
+              setAuthLoading(false);
+              return;
+            }
+
             // First time login - create user document
             const adminStatus = firebaseUser.email === 'isach8191@gmail.com';
             const cleanUser = (firebaseUser.email?.split('@')[0] || 'vendedor').replace(/[^a-zA-Z0-9_]/g, '');
@@ -752,29 +781,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     country?: string
   ) => {
     try {
+      isRegisteringRef.current = true;
       // 1. Validation: Unique username without spaces
       const cleanUsername = username.trim().toLowerCase();
       if (!/^[a-zA-Z0-9_]{3,30}$/.test(cleanUsername)) {
         throw new Error(t.auth.errors.usernameInvalid);
       }
 
-      // Check username uniqueness in Firestore
+      // 2. Create the auth user first so the user has an active, authenticated session
+      const res = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      await updateProfile(res.user, { displayName: name.trim() });
+
+      // 3. Check username uniqueness in Firestore (now authenticated, satisfying security rules)
       const userQuery = query(collection(db, 'users'), where('username', '==', cleanUsername));
       const uSnap = await getDocs(userQuery);
-      if (!uSnap.empty) {
+      const isTaken = uSnap.docs.some((docSnap) => docSnap.id !== res.user.uid);
+      if (isTaken) {
+        await res.user.delete();
         throw new Error(t.auth.errors.usernameTaken);
       }
 
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(res.user, { displayName: name });
-
-      const adminStatus = email === 'isach8191@gmail.com';
+      const adminStatus = email.trim().toLowerCase() === 'isach8191@gmail.com';
       const userCountry = country || preferredCountry || 'MZ';
       const newUser: User = {
         id: res.user.uid,
-        name,
+        name: name.trim(),
         username: cleanUsername,
-        email,
+        email: email.trim().toLowerCase(),
         avatar: DEFAULT_AVATAR,
         coverPhoto: DEFAULT_COVER,
         rating: 5.0,
@@ -786,7 +819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isBlocked: false,
         blockedUserIds: [],
         bio: 'Vendedor no VENDA AQUI.',
-        location: location || 'Moçambique',
+        location: location.trim() || 'Moçambique',
         country: userCountry,
         preferredLanguage: language,
         preferredCurrency: preferredCurrency,
@@ -804,9 +837,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         msg = t.auth.errors.emailInUse;
       } else if (error.code === 'auth/weak-password') {
         msg = t.auth.errors.weakPassword;
+      } else if (error.code === 'auth/invalid-email') {
+        msg = 'Formato de e-mail inválido.';
       }
       showToast(msg);
       throw new Error(msg);
+    } finally {
+      isRegisteringRef.current = false;
     }
   };
 
@@ -818,28 +855,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Sessão terminada.');
   };
 
-  // Helper to upload image file or fallback to base64
-  const uploadImageFile = async (file: File, folder: string): Promise<string> => {
-    // 5 MB image size limit validation
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error('A imagem ultrapassa o limite de 5 MB.');
-    }
-    if (!file.type.startsWith('image/')) {
-      throw new Error('O ficheiro deve ser uma imagem válida (JPG, PNG, WebP).');
+  // Send Password Reset Email
+  const sendPasswordReset = async (email: string) => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      showToast('Por favor, introduza o seu e-mail.');
+      throw new Error('E-mail obrigatório.');
     }
 
     try {
-      const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`);
-      const snap = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snap.ref);
-      return url;
-    } catch (err) {
-      console.warn('Storage upload fallback to base64 data URL:', err);
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
+      await withTimeout(
+        sendPasswordResetEmail(auth, cleanEmail),
+        20000,
+        'O envio do e-mail de recuperação demorou demasiado tempo. Verifique a ligação.'
+      );
+      showToast('Enviámos um link para o teu e-mail. Verifica também o spam.');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      let msg = 'Erro ao enviar e-mail de recuperação.';
+      if (error.code === 'auth/invalid-email') {
+        msg = 'Formato de e-mail inválido.';
+      } else if (error.code === 'auth/user-not-found') {
+        msg = 'E-mail não encontrado.';
+      } else if (error.code === 'auth/too-many-requests') {
+        msg = 'Demasiados pedidos. Aguarda alguns minutos e tenta novamente.';
+      } else if (error.message) {
+        msg = error.message;
+      }
+      showToast(msg);
+      throw new Error(msg);
+    }
+  };
+
+  // Helper to compress image client-side to base64 Data URL (NO Firebase Storage used!)
+  const processImageToDataUrl = async (
+    file: File | Blob | string,
+    maxDimension: number = 800
+  ): Promise<string> => {
+    try {
+      if (typeof file === 'string') {
+        if (file.startsWith('data:image/')) {
+          return await compressImage(file, { maxDimension, initialQuality: 0.6, maxSizeBytes: 700 * 1024 });
+        }
+        return file;
+      }
+      return await compressImage(file, { maxDimension, initialQuality: 0.6, maxSizeBytes: 700 * 1024 });
+    } catch (err: any) {
+      console.error('Image compression error:', err);
+      throw new Error(err?.message || 'Falha ao processar a fotografia.');
     }
   };
 
@@ -867,7 +930,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('feed');
   };
 
-  // Update user profile in Firestore
+  // Update user profile in Firestore (Images 400px, 0.6 quality, <700KB, max 20s timeout)
   const updateUserProfile = async (data: {
     name: string;
     bio: string;
@@ -885,11 +948,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let newCover = user.coverPhoto || DEFAULT_COVER;
 
     if (data.avatarFile) {
-      newAvatar = await uploadImageFile(data.avatarFile, `users/${user.id}/avatars`);
+      newAvatar = await processImageToDataUrl(data.avatarFile, 400);
     }
 
     if (data.coverFile) {
-      newCover = await uploadImageFile(data.coverFile, `users/${user.id}/covers`);
+      newCover = await processImageToDataUrl(data.coverFile, 400);
     }
 
     const updatedData: Partial<User> & { updatedAt: string } = {
@@ -906,7 +969,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      await updateDoc(doc(db, 'users', user.id), updatedData);
+      await withTimeout(
+        updateDoc(doc(db, 'users', user.id), updatedData),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
       const updatedUser = { ...user, ...updatedData };
       setUser(updatedUser);
       if (data.preferredLanguage) {
@@ -923,12 +990,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       setIsEditProfileOpen(false);
       showToast('Perfil atualizado com sucesso!');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.id}`);
+    } catch (err: any) {
+      console.error('Update profile error:', err);
+      const msg = err?.message || 'Erro ao atualizar perfil.';
+      showToast(msg);
+      throw new Error(msg);
     }
   };
 
-  // Create real post in Firestore with price, 5MB, anti-spam (max 10/hour), and block check
+  // Create real post in Firestore with price, 800px compressed base64, anti-spam (max 10/hour), and 20s timeout
   const createPost = async (data: {
     title: string;
     price: number;
@@ -954,12 +1024,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error('Preço inválido.');
     }
 
-    // Image size check
-    if (data.imageFile && data.imageFile.size > 5 * 1024 * 1024) {
-      showToast('A fotografia não pode ter mais de 5 MB.');
-      throw new Error('Imagem superior a 5 MB.');
-    }
-
     // Anti-spam rule: Limitar publicações a 10 por hora por utilizador
     const oneHourAgo = Date.now() - 3600000;
     const userPostsInLastHour = posts.filter(
@@ -973,7 +1037,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let imageUrl = data.imagePreviewUrl || DEFAULT_COVER;
 
     if (data.imageFile) {
-      imageUrl = await uploadImageFile(data.imageFile, `posts/${user.id}`);
+      imageUrl = await processImageToDataUrl(data.imageFile, 800);
+    } else if (data.imagePreviewUrl && data.imagePreviewUrl.startsWith('data:image/')) {
+      imageUrl = await processImageToDataUrl(data.imagePreviewUrl, 800);
     }
 
     const postCurrency = data.currency || preferredCurrency || 'MZN';
@@ -1003,12 +1069,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      await addDoc(collection(db, 'posts'), newPostData);
+      await withTimeout(
+        addDoc(collection(db, 'posts'), newPostData),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
       setIsCreatePostModalOpen(false);
       showToast('Publicação criada no VENDA AQUI!');
       setActiveTab('feed');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'posts');
+    } catch (err: any) {
+      console.error('Create post error:', err);
+      const msg = err?.message || 'Erro ao publicar anúncio.';
+      showToast(msg);
+      throw new Error(msg);
+    }
+  };
+
+  // Edit / Update Post Modal actions
+  const openEditPostModal = (post: Post) => {
+    setSelectedEditPost(post);
+    setIsEditPostModalOpen(true);
+  };
+
+  const closeEditPostModal = () => {
+    setSelectedEditPost(null);
+    setIsEditPostModalOpen(false);
+  };
+
+  const updatePost = async (
+    postId: string,
+    data: {
+      title: string;
+      price: number;
+      currency?: string;
+      condition: ProductCondition;
+      category: ProductCategory;
+      description: string;
+      imageFile?: File | null;
+      imageUrl?: string;
+      location: string;
+      country?: string;
+    }
+  ) => {
+    if (!user) return;
+
+    if (typeof data.price !== 'number' || isNaN(data.price) || data.price <= 0) {
+      showToast('Preço obrigatório e numérico.');
+      throw new Error('Preço inválido.');
+    }
+
+    const post = posts.find((p) => p.id === postId);
+    if (!post) {
+      showToast('Anúncio não encontrado.');
+      throw new Error('Anúncio não encontrado.');
+    }
+
+    if (post.sellerId !== user.id && !isAdmin) {
+      showToast('Apenas o vendedor ou administrador podem editar este anúncio.');
+      throw new Error('Sem permissão.');
+    }
+
+    let finalImageUrl = data.imageUrl || post.images[0] || DEFAULT_COVER;
+    if (data.imageFile) {
+      finalImageUrl = await processImageToDataUrl(data.imageFile, 800);
+    }
+
+    const updatedPayload = {
+      title: data.title.trim(),
+      price: data.price,
+      currency: data.currency || post.currency || preferredCurrency || 'MZN',
+      country: data.country || post.country || user.country || 'MZ',
+      condition: data.condition,
+      category: data.category,
+      description: data.description.trim(),
+      images: [finalImageUrl],
+      location: data.location.trim() || user.location,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await withTimeout(
+        updateDoc(doc(db, 'posts', postId), updatedPayload),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
+      setIsEditPostModalOpen(false);
+      setSelectedEditPost(null);
+      showToast('Anúncio atualizado com sucesso!');
+    } catch (err: any) {
+      console.error('Update post error:', err);
+      const msg = err?.message || 'Erro ao atualizar anúncio.';
+      showToast(msg);
+      throw new Error(msg);
     }
   };
 
@@ -1363,10 +1515,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let coverUrl = DEFAULT_COVER;
 
     if (data.logoFile) {
-      logoUrl = await uploadImageFile(data.logoFile, `shops/${user.id}/logos`);
+      logoUrl = await processImageToDataUrl(data.logoFile, 400);
     }
     if (data.coverFile) {
-      coverUrl = await uploadImageFile(data.coverFile, `shops/${user.id}/covers`);
+      coverUrl = await processImageToDataUrl(data.coverFile, 400);
     }
 
     const newShopData = {
@@ -1390,12 +1542,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      const docRef = await addDoc(collection(db, 'shops'), newShopData);
+      const docRef = await withTimeout(
+        addDoc(collection(db, 'shops'), newShopData),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
       setIsRegisterShopModalOpen(false);
       showToast('Loja / Negócio registado com sucesso no VENDA AQUI!');
       openShopDetail({ id: docRef.id, ...newShopData });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'shops');
+    } catch (err: any) {
+      console.error('Register shop error:', err);
+      const msg = err?.message || 'Erro ao registar loja.';
+      showToast(msg);
+      throw new Error(msg);
     }
   };
 
@@ -1414,21 +1573,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (data.logoFile) {
-      updatePayload.logo = await uploadImageFile(data.logoFile, `shops/${user.id}/logos`);
+      updatePayload.logo = await processImageToDataUrl(data.logoFile, 400);
     }
     if (data.coverFile) {
-      updatePayload.coverPhoto = await uploadImageFile(data.coverFile, `shops/${user.id}/covers`);
+      updatePayload.coverPhoto = await processImageToDataUrl(data.coverFile, 400);
     }
 
     updatePayload.updatedAt = new Date().toISOString();
 
     try {
-      await updateDoc(doc(db, 'shops', shopId), updatePayload);
+      await withTimeout(
+        updateDoc(doc(db, 'shops', shopId), updatePayload),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
       setSelectedShop((prev) => (prev && prev.id === shopId ? { ...prev, ...updatePayload } : prev));
       setIsEditShopModalOpen(false);
       showToast('Dados da loja atualizados.');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `shops/${shopId}`);
+    } catch (err: any) {
+      console.error('Update shop error:', err);
+      const msg = err?.message || 'Erro ao atualizar dados da loja.';
+      showToast(msg);
+      throw new Error(msg);
     }
   };
 
@@ -1483,7 +1649,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let imgUrl = data.imageUrl || DEFAULT_COVER;
     if (data.imageFile) {
-      imgUrl = await uploadImageFile(data.imageFile, `shops/${shopId}/products`);
+      imgUrl = await processImageToDataUrl(data.imageFile, 800);
     }
 
     const prodData = {
@@ -1497,11 +1663,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      await addDoc(collection(db, 'shops', shopId, 'products'), prodData);
+      await withTimeout(
+        addDoc(collection(db, 'shops', shopId, 'products'), prodData),
+        20000,
+        'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
+      );
       setIsAddProductModalOpen(false);
       showToast('Produto adicionado ao catálogo da loja!');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `shops/${shopId}/products`);
+    } catch (err: any) {
+      console.error('Add shop product error:', err);
+      const msg = err?.message || 'Erro ao adicionar produto.';
+      showToast(msg);
+      throw new Error(msg);
     }
   };
 
@@ -1650,8 +1823,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
+        sendPasswordReset,
         logout,
         createPost,
+        isEditPostModalOpen,
+        setIsEditPostModalOpen,
+        selectedEditPost,
+        openEditPostModal,
+        closeEditPostModal,
+        updatePost,
         toggleLikePost,
         addComment,
         deletePost,

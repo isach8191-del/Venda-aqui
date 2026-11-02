@@ -31,18 +31,23 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
 
-      // Only owner can create their own profile, cannot grant themselves admin or set blocked
+      // Only owner can create their own profile, cannot grant themselves admin or set blocked (unless authorized admin)
       allow create: if isOwner(userId) && 
-        (!('role' in incoming()) || incoming().role != 'admin') &&
-        (!('isAdmin' in incoming()) || incoming().isAdmin == false) &&
+        (!('role' in incoming()) || incoming().role != 'admin' || isAdmin()) &&
+        (!('isAdmin' in incoming()) || incoming().isAdmin == false || isAdmin()) &&
         (!('isBlocked' in incoming()) || incoming().isBlocked == false);
 
-      // Only owner or admin can update; owner cannot change role, admin, or isBlocked fields
+      // Only owner or admin can update; owner cannot change role, admin, or isBlocked fields to unauthorized values
       allow update: if isSignedIn() && (
         isAdmin() ||
-        (isOwner(userId) && 
-          !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isAdmin', 'isBlocked'])
-        ) ||
+        (isOwner(userId) && (
+          !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isAdmin', 'isBlocked']) ||
+          (
+            incoming().role == existing().role &&
+            incoming().isAdmin == existing().isAdmin &&
+            incoming().isBlocked == existing().isBlocked
+          )
+        )) ||
         // Allow rating and reviewCount aggregation
         incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewCount', 'totalSales'])
       );

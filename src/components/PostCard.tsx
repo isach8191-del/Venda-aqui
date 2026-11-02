@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   Languages,
   Loader2,
-  Sparkles
+  Sparkles,
+  Edit3
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 import { ReviewModal } from './ReviewModal';
@@ -33,6 +34,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     setActiveOfferPost, 
     startChatWithSeller, 
     deletePost,
+    openEditPostModal,
     openUserProfile,
     markPostAsCompleted,
     setActiveReportTarget,
@@ -151,14 +153,23 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             </span>
           )}
 
-          {isOwner && (
-            <button
-              onClick={() => deletePost(post.id)}
-              className="p-1 text-neutral-400 hover:text-red-500 transition-colors ml-1 cursor-pointer"
-              title={t.common.delete}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+          {(isOwner || isAdmin) && (
+            <div className="flex items-center gap-0.5 ml-1">
+              <button
+                onClick={() => openEditPostModal(post)}
+                className="p-1 text-neutral-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+                title="Editar anúncio"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => deletePost(post.id)}
+                className="p-1 text-neutral-400 hover:text-red-500 transition-colors cursor-pointer"
+                title={t.common.delete}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
       </div>

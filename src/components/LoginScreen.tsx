@@ -17,6 +17,7 @@ export const LoginScreen: React.FC = () => {
     signInWithGoogle, 
     signInWithEmail, 
     signUpWithEmail, 
+    sendPasswordReset,
     setIsTermsModalOpen, 
     setTermsModalMode,
     language,
@@ -27,8 +28,10 @@ export const LoginScreen: React.FC = () => {
   } = useApp();
 
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -38,6 +41,22 @@ export const LoginScreen: React.FC = () => {
   const [location, setLocation] = useState('Maputo');
   const [country, setCountry] = useState(preferredCountry || 'MZ');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const handlePasswordResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setResetSuccess(null);
+    setLoading(true);
+
+    try {
+      await sendPasswordReset(email);
+      setResetSuccess('Enviámos um link para o teu e-mail. Verifica também o spam.');
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao enviar e-mail de recuperação.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -175,190 +194,270 @@ export const LoginScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab Toggle: Entrar vs Registar */}
-        <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-4">
-          <button
-            type="button"
-            onClick={() => { setIsRegister(false); setError(null); }}
-            className={`flex-1 py-1.5 text-xs font-semibold text-center transition-colors ${
-              !isRegister
-                ? 'border-b-2 border-black dark:border-white text-black dark:text-white font-bold'
-                : 'text-neutral-500 hover:text-black dark:hover:text-white'
-            }`}
-          >
-            {t.auth.loginTab}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegister(true); setError(null); }}
-            className={`flex-1 py-1.5 text-xs font-semibold text-center transition-colors ${
-              isRegister
-                ? 'border-b-2 border-black dark:border-white text-black dark:text-white font-bold'
-                : 'text-neutral-500 hover:text-black dark:hover:text-white'
-            }`}
-          >
-            {t.auth.registerTab}
-          </button>
-        </div>
+        {/* View Switch: Esqueci a Palavra-passe vs Normal Login/Register */}
+        {isForgotPassword ? (
+          <div>
+            <div className="mb-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-black dark:text-white mb-1">
+                Recuperar Palavra-passe
+              </h2>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Introduz o teu e-mail associado à conta para receberes o link de recuperação.
+              </p>
+            </div>
 
-        {/* Email Form */}
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {isRegister && (
-            <>
+            {resetSuccess && (
+              <div className="mb-4 p-2.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-400 dark:border-neutral-600 text-xs text-black dark:text-white flex items-start gap-2 rounded-sm">
+                <Check className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                <span className="leading-tight font-medium">{resetSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordResetSubmit} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  {t.auth.nameLabel}
+                  {t.auth.emailLabel}
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <Mail className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                   <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder={t.auth.namePlaceholder}
+                    placeholder={t.auth.emailPlaceholder}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  {t.auth.usernameLabel}
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  placeholder={t.auth.usernamePlaceholder}
-                  className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
-                />
-              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-2 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <span>{loading ? 'A enviar...' : 'Enviar Link de Recuperação'}</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setError(null);
+                  setResetSuccess(null);
+                }}
+                className="w-full py-1.5 text-xs font-semibold text-neutral-500 hover:text-black dark:hover:text-white transition-colors cursor-pointer text-center"
+              >
+                Voltar ao Início de Sessão
+              </button>
+            </form>
+          </div>
+        ) : (
+          <>
+            {/* Tab Toggle: Entrar vs Registar */}
+            <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-4">
+              <button
+                type="button"
+                onClick={() => { setIsRegister(false); setError(null); }}
+                className={`flex-1 py-1.5 text-xs font-semibold text-center transition-colors ${
+                  !isRegister
+                    ? 'border-b-2 border-black dark:border-white text-black dark:text-white font-bold'
+                    : 'text-neutral-500 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                {t.auth.loginTab}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsRegister(true); setError(null); }}
+                className={`flex-1 py-1.5 text-xs font-semibold text-center transition-colors ${
+                  isRegister
+                    ? 'border-b-2 border-black dark:border-white text-black dark:text-white font-bold'
+                    : 'text-neutral-500 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                {t.auth.registerTab}
+              </button>
+            </div>
+
+            {/* Email Form */}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {isRegister && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                      {t.auth.nameLabel}
+                    </label>
+                    <div className="relative">
+                      <UserIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        placeholder={t.auth.namePlaceholder}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                      {t.auth.usernameLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      placeholder={t.auth.usernamePlaceholder}
+                      className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                      {t.auth.countryLabel}
+                    </label>
+                    <select
+                      value={country}
+                      onChange={(e) => {
+                        setCountry(e.target.value);
+                        setPreferredCountry(e.target.value);
+                      }}
+                      className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
+                    >
+                      {POPULAR_COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name[language] || c.name['en'] || c.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                      {t.auth.locationLabel}
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder={t.auth.locationPlaceholder}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  {t.auth.countryLabel}
-                </label>
-                <select
-                  value={country}
-                  onChange={(e) => {
-                    setCountry(e.target.value);
-                    setPreferredCountry(e.target.value);
-                  }}
-                  className="w-full px-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white cursor-pointer"
-                >
-                  {POPULAR_COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name[language] || c.name['en'] || c.code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                  {t.auth.locationLabel}
+                  {t.auth.emailLabel}
                 </label>
                 <div className="relative">
-                  <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <Mail className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                   <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder={t.auth.locationPlaceholder}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder={t.auth.emailPlaceholder}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                   />
                 </div>
               </div>
-            </>
-          )}
 
-          <div>
-            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-              {t.auth.emailLabel}
-            </label>
-            <div className="relative">
-              <Mail className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder={t.auth.emailPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
-              />
-            </div>
-          </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
+                  {t.auth.passwordLabel}
+                </label>
+                <div className="relative">
+                  <Lock className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder={t.auth.passwordPlaceholder}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-              {t.auth.passwordLabel}
-            </label>
-            <div className="relative">
-              <Lock className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder={t.auth.passwordPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
-              />
-            </div>
-          </div>
-
-          {isRegister && (
-            <div className="pt-1">
-              <label className="flex items-start gap-2 cursor-pointer text-[11px] text-neutral-600 dark:text-neutral-400">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  required
-                  className="mt-0.5 rounded-xs"
-                />
-                <span className="leading-tight">
-                  {t.auth.termsAgreement}{' '}
+              {/* Esqueci a palavra-passe link on login tab */}
+              {!isRegister && (
+                <div className="flex justify-end pt-0.5">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setTermsModalMode('terms');
-                      setIsTermsModalOpen(true);
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError(null);
+                      setResetSuccess(null);
                     }}
-                    className="text-black dark:text-white font-bold underline hover:opacity-80"
+                    className="text-[11px] text-neutral-500 hover:text-black dark:hover:text-white underline font-medium cursor-pointer"
                   >
-                    {t.auth.termsLink}
-                  </button>{' '}
-                  {t.common.or}{' '}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setTermsModalMode('about');
-                      setIsTermsModalOpen(true);
-                    }}
-                    className="text-black dark:text-white font-bold underline hover:opacity-80"
-                  >
-                    {t.auth.privacyLink}
+                    Esqueci a palavra-passe
                   </button>
-                  .
-                </span>
-              </label>
-            </div>
-          )}
+                </div>
+              )}
 
-          {/* Classic Sober Small Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-2 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-          >
-            <span>{isRegister ? t.auth.createAccountButton : t.auth.enterButton}</span>
-            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-          </button>
-        </form>
+              {isRegister && (
+                <div className="pt-1">
+                  <label className="flex items-start gap-2 cursor-pointer text-[11px] text-neutral-600 dark:text-neutral-400">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      required
+                      className="mt-0.5 rounded-xs"
+                    />
+                    <span className="leading-tight">
+                      {t.auth.termsAgreement}{' '}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTermsModalMode('terms');
+                          setIsTermsModalOpen(true);
+                        }}
+                        className="text-black dark:text-white font-bold underline hover:opacity-80"
+                      >
+                        {t.auth.termsLink}
+                      </button>{' '}
+                      {t.common.or}{' '}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTermsModalMode('about');
+                          setIsTermsModalOpen(true);
+                        }}
+                        className="text-black dark:text-white font-bold underline hover:opacity-80"
+                      >
+                        {t.auth.privacyLink}
+                      </button>
+                      .
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* Classic Sober Small Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-2 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <span>{isRegister ? t.auth.createAccountButton : t.auth.enterButton}</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </button>
+            </form>
+          </>
+        )}
 
         <p className="mt-5 text-center text-[11px] text-neutral-500 font-medium tracking-wide uppercase">
           {t.auth.footerSlogan}

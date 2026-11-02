@@ -17,6 +17,7 @@ import { SettingsTab } from './components/SettingsTab';
 import { UserProfileView } from './components/UserProfileView';
 import { EditProfileModal } from './components/EditProfileModal';
 import { CreatePostModal } from './components/CreatePostModal';
+import { EditPostModal } from './components/EditPostModal';
 import { CommentsModal } from './components/CommentsModal';
 import { MakeOfferModal } from './components/MakeOfferModal';
 import { RegisterShopModal } from './components/RegisterShopModal';
@@ -111,6 +112,7 @@ const AppContent: React.FC = () => {
 
       {/* Modals & Dialogs */}
       <CreatePostModal />
+      <EditPostModal />
       <EditProfileModal />
       <CommentsModal />
       <MakeOfferModal />
