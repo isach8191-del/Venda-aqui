@@ -161,6 +161,8 @@ export interface Message {
   conversationId?: string;
   senderId: string;
   text: string;
+  audioUrl?: string;
+  audioDuration?: number;
   timestamp: string;
   isMine: boolean;
   offerPrice?: number;

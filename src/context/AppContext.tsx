@@ -3,6 +3,7 @@ import {
   User, 
   Post, 
   Comment,
+  Message,
   Conversation, 
   NotificationItem, 
   ThemeChoice, 
@@ -162,7 +163,7 @@ interface AppContextType {
   toggleLikePost: (postId: string) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
-  sendMessage: (conversationId: string, text: string, offerPrice?: number) => Promise<void>;
+  sendMessage: (conversationId: string, text?: string, offerPrice?: number, audioUrl?: string, audioDuration?: number) => Promise<void>;
   startChatWithSeller: (post: Post, initialGreeting?: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -1280,15 +1281,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Chat and messaging
-  const sendMessage = async (conversationId: string, text: string, offerPrice?: number) => {
-    if (!user || (!text.trim() && !offerPrice)) return;
-    const newMsg = {
+  const sendMessage = async (
+    conversationId: string, 
+    text?: string, 
+    offerPrice?: number,
+    audioUrl?: string,
+    audioDuration?: number
+  ) => {
+    if (!user) return;
+
+    if (user.isBlocked) {
+      showToast('A sua conta está bloqueada e não pode enviar mensagens.');
+      throw new Error('Conta suspensa.');
+    }
+
+    const hasText = Boolean(text && text.trim());
+    const hasOffer = typeof offerPrice === 'number' && offerPrice > 0;
+    const hasAudio = Boolean(audioUrl && audioUrl.length > 0);
+
+    if (!hasText && !hasOffer && !hasAudio) return;
+
+    // Check voice message size (<800 KB)
+    if (hasAudio && audioUrl) {
+      const estimatedBytes = (audioUrl.length * 3) / 4;
+      if (estimatedBytes > 800 * 1024) {
+        showToast('Mensagem de voz demasiado grande, grava uma mais curta.');
+        throw new Error('Mensagem de voz demasiado grande, grava uma mais curta.');
+      }
+    }
+
+    let messageText = text?.trim() || '';
+    if (hasAudio && !messageText) {
+      messageText = 'Mensagem de voz';
+    } else if (hasOffer && !messageText) {
+      messageText = `Proposta de ${formatPrice(offerPrice!)}`;
+    }
+
+    const newMsg: Message = {
       id: `msg_${Date.now()}`,
+      conversationId,
       senderId: user.id,
-      text: text.trim() || `Proposta de ${offerPrice ? 'R$ ' + offerPrice.toLocaleString('pt-BR') : ''}`,
+      text: messageText,
+      audioUrl: audioUrl || undefined,
+      audioDuration: audioDuration || undefined,
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       isMine: true,
-      offerPrice,
+      offerPrice: hasOffer ? offerPrice : undefined,
     };
 
     setConversations((prev) =>
@@ -1296,13 +1334,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         c.id === conversationId
           ? {
               ...c,
-              lastMessage: newMsg.text,
+              lastMessage: hasAudio ? '🎤 Mensagem de voz' : newMsg.text,
               lastMessageTime: 'Agora',
               messages: [...c.messages, newMsg],
             }
           : c
       )
     );
+
+    // Save to Firestore if available
+    try {
+      const messageDocData = {
+        senderId: user.id,
+        text: messageText,
+        audioUrl: audioUrl || null,
+        audioDuration: audioDuration || null,
+        offerPrice: hasOffer ? offerPrice : null,
+        createdAt: new Date().toISOString(),
+      };
+
+      await withTimeout(
+        addDoc(collection(db, 'conversations', conversationId, 'messages'), messageDocData),
+        20000,
+        'O envio demorou demasiado tempo. Por favor, tente novamente.'
+      );
+    } catch (err: any) {
+      console.warn('Firestore message sync note:', err);
+      if (err?.code === 'permission-denied' || err?.message?.includes('Missing or insufficient permissions')) {
+        showToast('Não foi possível enviar: conta sem permissão.');
+        throw err;
+      }
+    }
   };
 
   const startChatWithSeller = async (post: Post, initialGreeting?: string) => {
