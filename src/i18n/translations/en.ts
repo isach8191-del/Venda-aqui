@@ -94,7 +94,7 @@ export const en: TranslationSchema = {
     },
   },
   feed: {
-    searchPlaceholder: 'Search products, brands, models...',
+    searchPlaceholder: 'Search ads, shops, and people',
     filterAll: 'All',
     filterNew: 'New',
     filterUsed: 'Used',

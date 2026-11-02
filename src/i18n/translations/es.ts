@@ -94,7 +94,7 @@ export const es: TranslationSchema = {
     },
   },
   feed: {
-    searchPlaceholder: 'Buscar productos, marcas, modelos...',
+    searchPlaceholder: 'Buscar anuncios, tiendas y personas',
     filterAll: 'Todos',
     filterNew: 'Nuevos',
     filterUsed: 'Usados',

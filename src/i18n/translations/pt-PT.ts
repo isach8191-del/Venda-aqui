@@ -94,7 +94,7 @@ export const ptPT: TranslationSchema = {
     },
   },
   feed: {
-    searchPlaceholder: 'Pesquisar produtos, marcas ou categorias...',
+    searchPlaceholder: 'Pesquisar anúncios, lojas e pessoas',
     filterAll: 'Todos',
     filterNew: 'Novos',
     filterUsed: 'Usados',

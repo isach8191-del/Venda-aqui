@@ -111,6 +111,7 @@ interface AppContextType {
   activeOfferPost: Post | null;
   setActiveOfferPost: (post: Post | null) => void;
   selectedProfileUser: User | null;
+  allUsers: User[];
   openUserProfile: (userOrId: User | string) => Promise<void>;
   closeUserProfile: () => void;
   isEditProfileOpen: boolean;
@@ -407,6 +408,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Selected Profile for Facebook-style user page
   const [selectedProfileUser, setSelectedProfileUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // Real Marketplace Data
@@ -700,6 +702,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'shops');
         setShopsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen to All Users for universal search
+  useEffect(() => {
+    if (!user) {
+      setAllUsers([]);
+      return;
+    }
+
+    const usersQuery = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedUsers: User[] = snapshot.docs
+          .map((docSnap) => {
+            const d = docSnap.data();
+            return {
+              id: docSnap.id,
+              name: d.name || 'Utilizador',
+              username: d.username || 'utilizador',
+              email: '', // Never expose private email
+              phone: '', // Never expose private phone
+              avatar: d.avatar || DEFAULT_AVATAR,
+              coverPhoto: d.coverPhoto || DEFAULT_COVER,
+              rating: Number(d.rating) || 5.0,
+              totalSales: Number(d.totalSales) || 0,
+              reviewCount: Number(d.reviewCount) || 0,
+              verified: Boolean(d.verified),
+              role: d.role || 'user',
+              isAdmin: Boolean(d.isAdmin),
+              isBlocked: Boolean(d.isBlocked),
+              blockedUserIds: Array.isArray(d.blockedUserIds) ? d.blockedUserIds : [],
+              bio: d.bio || '',
+              location: d.location || '',
+              country: d.country || '',
+              createdAt: d.createdAt || '',
+            };
+          })
+          .filter((u) => {
+            // Exclude blocked users and users blocked by current user
+            if (u.isBlocked) return false;
+            if (user.blockedUserIds && user.blockedUserIds.includes(u.id)) return false;
+            return true;
+          });
+
+        setAllUsers(loadedUsers);
+      },
+      (error) => {
+        console.warn('Users listener for search:', error);
       }
     );
 
@@ -1814,6 +1869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeOfferPost,
         setActiveOfferPost,
         selectedProfileUser,
+        allUsers,
         openUserProfile,
         closeUserProfile,
         isEditProfileOpen,
