@@ -1,23 +1,91 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
   <head>
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#ffffff" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VENDA AQUI - Rede Social de Vendas de Novos e Usados</title>
-    <meta name="description" content="Compre e venda produtos novos ou usados com facilidade em formato de rede social com publicações recentes, chat direto e notificações." />
-    <meta property="og:title" content="VENDA AQUI - Rede Social de Vendas de Novos e Usados" />
-    <meta property="og:description" content="Compre e venda produtos novos ou usados com facilidade em formato de rede social com publicações recentes, chat direto e notificações." />
+    <title>Hic Venditur - Compras e Vendas</title>
+    <meta name="description" content="Compre e venda produtos novos ou usados com facilidade com publicações recentes, chat direto e notificações." />
+    <meta property="og:title" content="Hic Venditur" />
+    <meta property="og:description" content="Compre e venda produtos novos ou usados com facilidade com publicações recentes, chat direto e notificações." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hic Venditur" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Mr+Dafoe&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+      /* Initial Loading Screen (Pure CSS for instant display before React loads) */
+      #initial-loading-screen {
+        position: fixed;
+        inset: 0;
+        background-color: #ffffff;
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
+      }
+      #initial-loading-screen.fade-out {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .loading-cart-icon {
+        width: 32px;
+        height: 32px;
+        color: #000000;
+        margin-bottom: 12px;
+      }
+      /* Handwriting mask reveal from left to right over ~2 seconds */
+      .hic-venditur-animated-name {
+        font-family: 'Mr Dafoe', cursive;
+        font-size: 28px;
+        color: #000000;
+        line-height: 1.2;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        display: inline-block;
+        clip-path: inset(0 100% 0 0);
+        -webkit-clip-path: inset(0 100% 0 0);
+        animation: writeHicVenditur 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      @keyframes writeHicVenditur {
+        0% {
+          clip-path: inset(0 100% 0 0);
+          -webkit-clip-path: inset(0 100% 0 0);
+        }
+        100% {
+          clip-path: inset(0 0% 0 0);
+          -webkit-clip-path: inset(0 0% 0 0);
+        }
+      }
+      /* Respeitar 'reduzir movimento' */
+      @media (prefers-reduced-motion: reduce) {
+        .hic-venditur-animated-name {
+          animation: none !important;
+          clip-path: inset(0 0 0 0) !important;
+          -webkit-clip-path: inset(0 0 0 0) !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Ecrã de carregamento inicial: carrinho preto centrado e Hic Venditur animado à mão -->
+    <div id="initial-loading-screen" aria-live="polite" role="status">
+      <svg class="loading-cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="21" r="1"></circle>
+        <circle cx="19" cy="21" r="1"></circle>
+        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path>
+      </svg>
+      <span class="hic-venditur-animated-name">Hic Venditur</span>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

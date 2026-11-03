@@ -7,7 +7,7 @@ export const ptMZ: TranslationSchema = {
     description: 'Compre e venda produtos novos ou usados com facilidade em Moçambique e no mundo em formato de rede social com publicações recentes, chat direto e notificações.',
   },
   common: {
-    appName: 'VENDA AQUI',
+    appName: 'Hic Venditur',
     appSlogan: 'COMPRA AQUI E VENDA AQUI',
     loading: 'A carregar...',
     save: 'Guardar',

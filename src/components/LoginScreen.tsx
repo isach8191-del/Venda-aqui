@@ -8,7 +8,8 @@ import {
   ArrowRight, 
   AlertCircle, 
   Globe, 
-  Check 
+  Check,
+  ShoppingCart 
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, POPULAR_COUNTRIES, LanguageCode } from '../i18n';
 
@@ -132,11 +133,11 @@ export const LoginScreen: React.FC = () => {
 
         {/* Brand Lockup */}
         <div className="text-center mb-6">
-          <div className="w-9 h-9 mx-auto border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-black text-sm flex items-center justify-center rounded-sm mb-2.5">
-            VA
+          <div className="w-10 h-10 mx-auto border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black flex items-center justify-center rounded-sm mb-2.5">
+            <ShoppingCart className="w-5 h-5 stroke-[2]" />
           </div>
-          <h1 className="text-lg font-extrabold uppercase tracking-tight text-black dark:text-white">
-            {t.common.appName}
+          <h1 className="font-signature text-3xl sm:text-4xl text-black dark:text-white leading-tight">
+            Hic Venditur
           </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             {t.auth.subtitle}

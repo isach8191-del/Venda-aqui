@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Moon, Sun } from 'lucide-react';
+import { Plus, Moon, Sun, ShoppingCart } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 
 export const AppHeader: React.FC = () => {
@@ -25,24 +25,19 @@ export const AppHeader: React.FC = () => {
     <header className="fixed top-0 left-0 right-0 z-40 w-full bg-white dark:bg-black border-b border-neutral-300 dark:border-neutral-800 shadow-none rounded-none h-13 transition-colors duration-150">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 h-full flex items-center justify-between gap-3">
         
-        {/* 1. Encima do lado esquerdo: O nome do app VENDA AQUI */}
+        {/* 1. Encima do lado esquerdo: O nome do app Hic Venditur */}
         <div className="flex items-center gap-2 shrink-0">
           <button 
             onClick={() => setActiveTab('feed')}
-            className="flex items-center gap-2 text-left focus:outline-none group rounded-none"
-            aria-label="Página inicial VENDA AQUI"
+            className="flex items-center gap-2 text-left focus:outline-none group rounded-none cursor-pointer"
+            aria-label="Página inicial Hic Venditur"
           >
-            <div className="w-6 h-6 rounded-none border border-black dark:border-white bg-black dark:bg-white flex items-center justify-center font-black text-white dark:text-black text-[11px] tracking-tight">
-              VA
+            <div className="w-7 h-7 rounded-none border border-black dark:border-white bg-black dark:bg-white flex items-center justify-center text-white dark:text-black">
+              <ShoppingCart className="w-3.5 h-3.5 stroke-[2]" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xs sm:text-sm tracking-tight uppercase text-black dark:text-white leading-none">
-                VENDA AQUI
-              </span>
-              <span className="text-[8px] uppercase tracking-widest text-neutral-500 font-semibold mt-0.5">
-                Rede Social
-              </span>
-            </div>
+            <span className="font-signature text-xl sm:text-2xl text-black dark:text-white leading-none">
+              Hic Venditur
+            </span>
           </button>
         </div>
 

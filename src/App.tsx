@@ -29,7 +29,8 @@ import { ReportModal } from './components/ReportModal';
 import { TermsModal } from './components/TermsModal';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ReviewModal } from './components/ReviewModal';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ShoppingCart } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const AppContent: React.FC = () => {
   const { 
@@ -49,24 +50,58 @@ const AppContent: React.FC = () => {
     setActiveReviewTarget
   } = useApp();
 
-  // 1. Initial Auth Loading State
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center justify-center p-4">
-        <div className="w-8 h-8 rounded-none border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-black text-xs flex items-center justify-center animate-pulse mb-3">
-          VA
-        </div>
-        <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">
-          A carregar VENDA AQUI...
-        </p>
-      </div>
-    );
-  }
+  const [minTimePassed, setMinTimePassed] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  const [splashFinished, setSplashFinished] = useState(false);
+
+  // Keep loading screen at least 2.2 seconds for handwriting animation to complete
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinTimePassed(true);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // When both minTimePassed (>= 2.2s) and authLoading is false, fade smoothly to login/feed
+  useEffect(() => {
+    if (minTimePassed && !authLoading) {
+      setIsFadingOut(true);
+      const initialEl = document.getElementById('initial-loading-screen');
+      if (initialEl) {
+        initialEl.classList.add('fade-out');
+      }
+      const fadeTimer = setTimeout(() => {
+        setSplashFinished(true);
+        if (initialEl && initialEl.parentNode) {
+          initialEl.parentNode.removeChild(initialEl);
+        }
+      }, 420);
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [minTimePassed, authLoading]);
+
+  // Loading Screen Overlay Component
+  const loadingOverlay = !splashFinished ? (
+    <div
+      className={`fixed inset-0 z-[999999] bg-white flex flex-col items-center justify-center p-4 transition-opacity duration-400 ease-out select-none ${
+        isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+      style={{ backgroundColor: '#ffffff' }}
+      aria-live="polite"
+      role="status"
+    >
+      <ShoppingCart className="w-8 h-8 text-black mb-3 stroke-[2]" />
+      <span className="hic-venditur-animated-name text-black text-2xl sm:text-3xl">
+        Hic Venditur
+      </span>
+    </div>
+  ) : null;
 
   // 2. Strict Login Gate: Sem conta, não se acede ao app!
   if (!user) {
     return (
       <>
+        {loadingOverlay}
         <LoginScreen />
         {isTermsModalOpen && (
           <TermsModal
@@ -80,12 +115,19 @@ const AppContent: React.FC = () => {
 
   // 3. Blocked User Screen (utilizador bloqueado não consegue entrar nem publicar)
   if (user.isBlocked) {
-    return <BlockedScreen />;
+    return (
+      <>
+        {loadingOverlay}
+        <BlockedScreen />
+      </>
+    );
   }
 
   // 4. Authenticated App Shell with strictly fixed top and bottom bars
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-150 flex flex-col font-sans pt-14 pb-20 sm:pb-24 selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+    <>
+      {loadingOverlay}
+      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-150 flex flex-col font-sans pt-14 pb-20 sm:pb-24 selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
       
       {/* Top Fixed Header (pequena e clássica, botão único "Publicar" no topo) */}
       <AppHeader />
@@ -166,6 +208,7 @@ const AppContent: React.FC = () => {
       )}
 
     </div>
+    </>
   );
 };
 

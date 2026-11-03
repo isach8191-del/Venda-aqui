@@ -18,7 +18,7 @@ export const BlockedScreen: React.FC = () => {
             Conta Suspensa
           </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-            Olá <span className="font-bold text-black dark:text-white">{user?.name}</span>, a sua conta foi bloqueada pela administração do <strong>VENDA AQUI</strong> devido a violação das diretrizes de segurança ou denúncias.
+            Olá <span className="font-bold text-black dark:text-white">{user?.name}</span>, a sua conta foi bloqueada pela administração do <strong className="font-signature text-sm font-normal">Hic Venditur</strong> devido a violação das diretrizes de segurança ou denúncias.
           </p>
         </div>
 

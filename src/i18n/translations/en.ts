@@ -7,7 +7,7 @@ export const en: TranslationSchema = {
     description: 'Buy and sell new and pre-owned items globally with a modern social feed, real-time seller chat, and instant notifications.',
   },
   common: {
-    appName: 'VENDA AQUI',
+    appName: 'Hic Venditur',
     appSlogan: 'COMPRA AQUI E VENDA AQUI',
     loading: 'Loading...',
     save: 'Save',

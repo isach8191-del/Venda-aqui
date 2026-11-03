@@ -20,7 +20,8 @@ import {
   Store,
   FileText,
   Info,
-  Ban
+  Ban,
+  ShoppingCart
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 
@@ -82,9 +83,11 @@ export const SettingsTab: React.FC = () => {
             Definições do App
           </h1>
         </div>
-        <span className="text-[11px] text-neutral-500 font-mono">
-          VENDA AQUI · v2.0
-        </span>
+        <div className="flex items-center gap-1.5 text-neutral-500 font-mono text-[11px]">
+          <ShoppingCart className="w-3.5 h-3.5 text-black dark:text-white" />
+          <span className="font-signature text-sm text-black dark:text-white">Hic Venditur</span>
+          <span>· v2.0</span>
+        </div>
       </div>
 
       {/* Admin Panel Access Banner (Exclusive for isach8191@gmail.com) */}

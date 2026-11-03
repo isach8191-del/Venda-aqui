@@ -9,6 +9,40 @@
   }
 }
 
+/* Fonte de assinatura: Mr Dafoe (Google Fonts) */
+.font-signature {
+  font-family: 'Mr Dafoe', cursive;
+}
+
+/* Animação de escrita à mão da esquerda para a direita (apenas no ecrã de carregamento) */
+.hic-venditur-animated-name {
+  font-family: 'Mr Dafoe', cursive;
+  white-space: nowrap;
+  display: inline-block;
+  clip-path: inset(0 100% 0 0);
+  -webkit-clip-path: inset(0 100% 0 0);
+  animation: writeHicVenditur 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes writeHicVenditur {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    -webkit-clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+    -webkit-clip-path: inset(0 0% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hic-venditur-animated-name {
+    animation: none !important;
+    clip-path: inset(0 0 0 0) !important;
+    -webkit-clip-path: inset(0 0 0 0) !important;
+  }
+}
+
 /* Custom scrollbars for clean monochrome look */
 ::-webkit-scrollbar {
   width: 6px;

@@ -7,7 +7,7 @@ export const ptPT: TranslationSchema = {
     description: 'Compre e venda produtos novos ou usados com rapidez em Portugal e no mundo com feed social, mensagens diretas e notificações em tempo real.',
   },
   common: {
-    appName: 'VENDA AQUI',
+    appName: 'Hic Venditur',
     appSlogan: 'COMPRA AQUI E VENDA AQUI',
     loading: 'A carregar...',
     save: 'Guardar',
