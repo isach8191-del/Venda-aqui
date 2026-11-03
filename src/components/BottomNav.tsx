@@ -40,7 +40,7 @@ export const BottomNav: React.FC = () => {
     },
     {
       id: 'notifications',
-      label: 'Notificações',
+      label: 'Avisos',
       icon: Bell,
       badge: unreadNotificationsCount,
     },

@@ -165,6 +165,10 @@ interface AppContextType {
   deletePost: (postId: string) => Promise<void>;
   sendMessage: (conversationId: string, text?: string, offerPrice?: number, audioUrl?: string, audioDuration?: number) => Promise<void>;
   startChatWithSeller: (post: Post, initialGreeting?: string) => Promise<void>;
+  startChatWithUser: (
+    targetUser: { id: string; name: string; avatar?: string; username?: string; location?: string },
+    product?: any
+  ) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   updateUserProfile: (data: {
@@ -800,6 +804,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [selectedShop]);
 
+  // Listen to User Conversations from Firestore in Real Time
+  useEffect(() => {
+    if (!user) {
+      setConversations([]);
+      return;
+    }
+
+    const convQuery = query(
+      collection(db, 'conversations'),
+      where('participantIds', 'array-contains', user.id)
+    );
+
+    const unsubscribe = onSnapshot(
+      convQuery,
+      (snapshot) => {
+        const loaded: Conversation[] = snapshot.docs.map((docSnap) => {
+          const d = docSnap.data();
+          const pIds: string[] = Array.isArray(d.participantIds) ? d.participantIds : [];
+          const otherUserId = pIds.find((id) => id !== user.id) || '';
+          const participantsMap = d.participants || {};
+          const otherInfo = participantsMap[otherUserId] || {};
+
+          return {
+            id: docSnap.id,
+            participantIds: pIds,
+            participant: {
+              id: otherUserId,
+              name: otherInfo.name || d.participantName || 'Utilizador',
+              username: otherInfo.username || '@utilizador',
+              avatar: otherInfo.avatar || DEFAULT_AVATAR,
+              email: otherInfo.email || '',
+              location: otherInfo.location || '',
+              rating: Number(otherInfo.rating) || 5.0,
+              totalSales: Number(otherInfo.totalSales) || 0,
+              verified: Boolean(otherInfo.verified),
+            },
+            product: d.product || undefined,
+            lastMessage: d.lastMessage || 'Conversa iniciada',
+            lastMessageTime: d.lastMessageTime || 'Agora',
+            unreadCount: Number(d.unreadCount) || 0,
+            messages: [],
+          };
+        });
+
+        // Ordenar no código por data/id decrescente sem requerer índice
+        loaded.sort((a, b) => b.id.localeCompare(a.id));
+        setConversations(loaded);
+      },
+      (error) => {
+        console.warn('Erro ao ler conversas:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
   // Auth Handlers
   const signInWithGoogle = async () => {
     try {
@@ -1345,6 +1405,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save to Firestore if available
     try {
       const messageDocData = {
+        conversationId,
         senderId: user.id,
         text: messageText,
         audioUrl: audioUrl || null,
@@ -1356,57 +1417,163 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await withTimeout(
         addDoc(collection(db, 'conversations', conversationId, 'messages'), messageDocData),
         20000,
-        'O envio demorou demasiado tempo. Por favor, tente novamente.'
+        'O envio demorou mais de 20 segundos. Por favor, tente novamente.'
       );
-    } catch (err: any) {
-      console.warn('Firestore message sync note:', err);
-      if (err?.code === 'permission-denied' || err?.message?.includes('Missing or insufficient permissions')) {
-        showToast('Não foi possível enviar: conta sem permissão.');
-        throw err;
+
+      // Atualizar a última mensagem da conversa no Firestore
+      try {
+        await updateDoc(doc(db, 'conversations', conversationId), {
+          lastMessage: hasAudio ? '🎤 Mensagem de voz' : messageText,
+          lastMessageTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (updErr) {
+        console.warn('Erro ao atualizar resumo da conversa:', updErr);
       }
+    } catch (err: any) {
+      console.error('Erro ao enviar mensagem:', err);
+      const msg = err?.message || 'Erro ao enviar mensagem. Tente novamente.';
+      showToast(msg);
+      throw err;
+    }
+  };
+
+  const startChatWithUser = async (
+    targetUser: { id: string; name: string; avatar?: string; username?: string; location?: string },
+    product?: any
+  ) => {
+    if (!user) {
+      showToast('Inicie sessão para enviar mensagens.');
+      return;
+    }
+
+    if (targetUser.id === user.id) {
+      showToast('Esta é a sua própria conta.');
+      return;
+    }
+
+    if (user.isBlocked) {
+      showToast('A sua conta está suspensa.');
+      return;
+    }
+
+    // Fecha perfis ou páginas de lojas para abrir diretamente a conversa em ecrã inteiro
+    closeUserProfile();
+    closeShopDetail();
+
+    // ID determinístico para conversa direta entre os dois utilizadores
+    const convId = `conv_${[user.id, targetUser.id].sort().join('_')}`;
+
+    try {
+      // 1. Verificar ou criar a conversa no Firestore se ainda não existir
+      const convRef = doc(db, 'conversations', convId);
+      const convSnap = await getDoc(convRef);
+
+      const initialGreeting = product 
+        ? `Olá ${targetUser.name}! Tenho interesse no anúncio "${product.title}".`
+        : `Olá ${targetUser.name}!`;
+
+      if (!convSnap.exists()) {
+        const newConvPayload = {
+          id: convId,
+          participantIds: [user.id, targetUser.id],
+          participants: {
+            [user.id]: {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar || DEFAULT_AVATAR,
+              username: user.username || '@utilizador',
+              location: user.location || '',
+            },
+            [targetUser.id]: {
+              id: targetUser.id,
+              name: targetUser.name,
+              avatar: targetUser.avatar || DEFAULT_AVATAR,
+              username: targetUser.username || '@utilizador',
+              location: targetUser.location || '',
+            },
+          },
+          lastMessage: initialGreeting,
+          lastMessageTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          product: product ? {
+            id: product.id,
+            title: product.title,
+            price: Number(product.price) || 0,
+            image: product.images?.[0] || product.image || DEFAULT_COVER,
+            condition: product.condition || 'usado',
+          } : null,
+        };
+
+        await withTimeout(
+          setDoc(convRef, newConvPayload),
+          20000,
+          'A criação da conversa demorou demasiado tempo. Tente novamente.'
+        );
+
+        // Adicionar mensagem inicial
+        await addDoc(collection(db, 'conversations', convId, 'messages'), {
+          conversationId: convId,
+          senderId: user.id,
+          text: initialGreeting,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // Adicionar à lista local se ainda não estiver
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === convId)) return prev;
+        const newConv: Conversation = {
+          id: convId,
+          participantIds: [user.id, targetUser.id],
+          participant: {
+            id: targetUser.id,
+            name: targetUser.name,
+            avatar: targetUser.avatar || DEFAULT_AVATAR,
+            username: targetUser.username || '@utilizador',
+            email: '',
+            location: targetUser.location || '',
+            rating: 5.0,
+            totalSales: 0,
+            verified: false,
+          },
+          product: product ? {
+            id: product.id,
+            title: product.title,
+            price: Number(product.price) || 0,
+            image: product.images?.[0] || product.image || DEFAULT_COVER,
+            condition: product.condition || 'usado',
+          } : undefined,
+          lastMessage: initialGreeting,
+          lastMessageTime: 'Agora',
+          unreadCount: 0,
+          messages: [],
+        };
+        return [newConv, ...prev];
+      });
+
+      // 2. Definir conversa ativa e abrir o separador de mensagens imediatamente
+      setActiveConversationId(convId);
+      setActiveTab('messages');
+    } catch (err: any) {
+      console.error('Erro ao iniciar conversa:', err);
+      const msg = err?.message || 'Erro ao abrir conversa. Tente novamente.';
+      showToast(msg);
     }
   };
 
   const startChatWithSeller = async (post: Post, initialGreeting?: string) => {
-    if (!user) return;
-    const existing = conversations.find((c) => c.participant.id === post.seller.id);
-    if (existing) {
-      setActiveConversationId(existing.id);
-      setActiveTab('messages');
-      if (initialGreeting) {
-        sendMessage(existing.id, initialGreeting);
-      }
-      return;
-    }
-
-    const newConv: Conversation = {
-      id: `conv_${Date.now()}`,
-      participantIds: [user.id, post.seller.id],
-      participant: post.seller,
-      product: {
-        id: post.id,
-        title: post.title,
-        price: post.price,
-        image: post.images[0],
-        condition: post.condition,
+    return startChatWithUser(
+      {
+        id: post.sellerId || post.seller.id,
+        name: post.seller.name,
+        avatar: post.seller.avatar,
+        username: post.seller.username,
+        location: post.seller.location,
       },
-      lastMessage: initialGreeting || `Olá ${post.seller.name}! Tenho interesse no seu produto "${post.title}".`,
-      lastMessageTime: 'Agora',
-      unreadCount: 0,
-      messages: [
-        {
-          id: `msg_${Date.now()}`,
-          senderId: user.id,
-          text: initialGreeting || `Olá ${post.seller.name}! Tenho interesse no anúncio de ${post.title} no VENDA AQUI.`,
-          timestamp: 'Agora',
-          isMine: true,
-        },
-      ],
-    };
-
-    setConversations([newConv, ...conversations]);
-    setActiveConversationId(newConv.id);
-    setActiveTab('messages');
+      post
+    );
   };
 
   const fetchSellerReviews = async (sellerId: string): Promise<any[]> => {
@@ -1955,6 +2122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deletePost,
         sendMessage,
         startChatWithSeller,
+        startChatWithUser,
         markNotificationAsRead,
         markAllNotificationsAsRead,
         updateUserProfile,

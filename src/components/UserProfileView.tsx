@@ -31,6 +31,7 @@ export const UserProfileView: React.FC = () => {
     fetchSellerReviews,
     setActiveReportTarget,
     blockUser,
+    startChatWithUser,
     showToast 
   } = useApp();
 
@@ -164,14 +165,12 @@ export const UserProfileView: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => {
-                      setActiveTab('messages');
-                      showToast(`Conversa com ${selectedProfileUser.name}`);
-                    }}
-                    className="py-1.5 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-2xs"
+                    onClick={() => startChatWithUser(selectedProfileUser)}
+                    className="py-1.5 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    title={`Conversar com ${selectedProfileUser.name}`}
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>Enviar Mensagem</span>
+                    <span>Mensagem</span>
                   </button>
 
                   <button

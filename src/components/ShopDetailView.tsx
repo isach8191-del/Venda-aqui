@@ -10,6 +10,7 @@ import {
   CheckCircle, 
   Star, 
   MessageCircle, 
+  MessageSquare,
   Plus, 
   Edit3, 
   Trash2, 
@@ -37,6 +38,7 @@ export const ShopDetailView: React.FC = () => {
     toggleShopProductStatus,
     deleteShopProduct,
     fetchShopReviews,
+    startChatWithUser,
     showToast
   } = useApp();
 
@@ -175,11 +177,28 @@ export const ShopDetailView: React.FC = () => {
               </div>
             </div>
 
-            {/* Action buttons (WhatsApp and Call) */}
-            <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+            {/* Action buttons (Mensagem, WhatsApp and Call) */}
+            <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 flex-wrap">
+              {!isOwner && (
+                <button
+                  onClick={() => startChatWithUser({
+                    id: selectedShop.ownerId,
+                    name: selectedShop.name,
+                    avatar: selectedShop.logo || DEFAULT_AVATAR,
+                    username: selectedShop.name,
+                    location: selectedShop.city,
+                  })}
+                  className="flex-1 sm:flex-initial py-1.5 px-3 rounded-sm bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider hover:opacity-90 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  title="Enviar mensagem para esta loja"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Mensagem</span>
+                </button>
+              )}
+
               <button
                 onClick={() => handleOpenWhatsApp()}
-                className="flex-1 sm:flex-initial py-1.5 px-3 rounded-sm bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider hover:opacity-90 flex items-center justify-center gap-1.5 shadow-2xs"
+                className="flex-1 sm:flex-initial py-1.5 px-3 rounded-sm border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-bold uppercase tracking-wider hover:border-black dark:hover:border-white flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>WhatsApp</span>
