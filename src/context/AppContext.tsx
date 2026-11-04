@@ -137,6 +137,8 @@ interface AppContextType {
     description: string;
     imageFile?: File | null;
     imagePreviewUrl?: string;
+    imageFiles?: File[];
+    images?: string[];
     location: string;
     country?: string;
   }) => Promise<void>;
@@ -156,6 +158,8 @@ interface AppContextType {
       description: string;
       imageFile?: File | null;
       imageUrl?: string;
+      imageFiles?: File[];
+      images?: string[];
       location: string;
       country?: string;
     }
@@ -163,7 +167,19 @@ interface AppContextType {
   toggleLikePost: (postId: string) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
-  sendMessage: (conversationId: string, text?: string, offerPrice?: number, audioUrl?: string, audioDuration?: number) => Promise<void>;
+  sendMessage: (
+    conversationId: string, 
+    text?: string, 
+    offerPrice?: number, 
+    audioUrl?: string, 
+    audioDuration?: number,
+    attachment?: {
+      fileUrl: string;
+      fileName?: string;
+      fileSize?: string;
+      fileType: 'image' | 'file' | 'audio';
+    }
+  ) => Promise<void>;
   startChatWithSeller: (post: Post, initialGreeting?: string) => Promise<void>;
   startChatWithUser: (
     targetUser: { id: string; name: string; avatar?: string; username?: string; location?: string },
@@ -535,6 +551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               preferredLanguage: (data.preferredLanguage as LanguageCode) || language,
               preferredCurrency: (data.preferredCurrency as CurrencyCode) || preferredCurrency,
               createdAt: data.createdAt ?? new Date().toISOString(),
+              lastSeen: data.lastSeen ?? new Date().toISOString(),
             });
           } else {
             // If actively in signUpWithEmail, let that finish creating the user document with custom details
@@ -546,6 +563,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // First time login - create user document
             const adminStatus = firebaseUser.email === 'isach8191@gmail.com';
             const cleanUser = (firebaseUser.email?.split('@')[0] || 'vendedor').replace(/[^a-zA-Z0-9_]/g, '');
+            const nowIso = new Date().toISOString();
             const newUser: User = {
               id: firebaseUser.uid,
               name: firebaseUser.displayName || 'Utilizador',
@@ -567,7 +585,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               phone: '',
               preferredLanguage: language,
               preferredCurrency: preferredCurrency,
-              createdAt: new Date().toISOString(),
+              createdAt: nowIso,
+              lastSeen: nowIso,
             };
             await setDoc(userDocRef, newUser);
             setUser(newUser);
@@ -583,6 +602,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => unsubscribe();
   }, []);
+
+  // Presença online: atualizar lastSeen a cada 30 segundos e em eventos de foco/visibilidade
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const updatePresence = async () => {
+      try {
+        await updateDoc(doc(db, 'users', user.id), {
+          lastSeen: new Date().toISOString(),
+        });
+      } catch (err) {
+        // Ignora silenciosamente erros passageiros de rede
+      }
+    };
+
+    updatePresence();
+    const intervalId = window.setInterval(updatePresence, 30000);
+
+    const handleActivity = () => {
+      updatePresence();
+    };
+
+    window.addEventListener('focus', handleActivity);
+    window.addEventListener('blur', handleActivity);
+    window.addEventListener('beforeunload', handleActivity);
+    document.addEventListener('visibilitychange', handleActivity);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleActivity);
+      window.removeEventListener('blur', handleActivity);
+      window.removeEventListener('beforeunload', handleActivity);
+      document.removeEventListener('visibilitychange', handleActivity);
+    };
+  }, [user?.id]);
 
   // Listen to Real Posts from Firestore
   useEffect(() => {
@@ -625,7 +679,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             condition: data.condition || 'usado',
             category: data.category || 'Outros',
             description: data.description || '',
-            images: Array.isArray(data.images) && data.images.length > 0 ? data.images : [DEFAULT_COVER],
+            images: Array.isArray(data.images) ? data.images : (data.imageUrl ? [data.imageUrl] : []),
             likes: Number(data.likes) || likedByArray.length,
             likedBy: likedByArray,
             isLiked,
@@ -747,6 +801,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               location: d.location || '',
               country: d.country || '',
               createdAt: d.createdAt || '',
+              lastSeen: d.lastSeen || '',
             };
           })
           .filter((u) => {
@@ -839,6 +894,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               rating: Number(otherInfo.rating) || 5.0,
               totalSales: Number(otherInfo.totalSales) || 0,
               verified: Boolean(otherInfo.verified),
+              lastSeen: otherInfo.lastSeen || '',
             },
             product: d.product || undefined,
             lastMessage: d.lastMessage || 'Conversa iniciada',
@@ -854,6 +910,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       (error) => {
         console.warn('Erro ao ler conversas:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen to User Notifications from Firestore in Real Time
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
+    const notifsRef = collection(db, 'users', user.id, 'notifications');
+    const unsubscribe = onSnapshot(
+      notifsRef,
+      (snapshot) => {
+        const items: NotificationItem[] = snapshot.docs.map((docSnap) => {
+          const d = docSnap.data();
+          let formattedTime = 'Agora';
+          if (d.createdAt) {
+            try {
+              formattedTime = formatRelativePostTime(d.createdAt);
+            } catch {
+              formattedTime = 'Agora';
+            }
+          }
+          return {
+            id: docSnap.id,
+            userId: user.id,
+            type: d.type || 'system',
+            title: d.title || (d.type === 'like' ? 'Gosto no anúncio' : d.type === 'comment' ? 'Pergunta no anúncio' : 'Aviso'),
+            description: d.description || d.commentText || '',
+            time: formattedTime,
+            createdAt: d.createdAt,
+            read: Boolean(d.read),
+            postId: d.postId,
+            postTitle: d.postTitle,
+            commentText: d.commentText,
+            senderId: d.senderId,
+            senderName: d.senderName,
+            senderAvatar: d.senderAvatar,
+            userAvatar: d.senderAvatar || DEFAULT_AVATAR,
+          };
+        });
+
+        items.sort((a, b) => {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tB - tA;
+        });
+
+        setNotifications(items);
+      },
+      (error) => {
+        console.warn('Erro ao ler notificações em tempo real:', error);
       }
     );
 
@@ -1114,7 +1226,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Create real post in Firestore with price, 800px compressed base64, anti-spam (max 10/hour), and 20s timeout
+  // Create real post in Firestore with price, 800px compressed base64 (0, 1, or multiple photos), anti-spam (max 10/hour), and 20s timeout
   const createPost = async (data: {
     title: string;
     price: number;
@@ -1124,6 +1236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     description: string;
     imageFile?: File | null;
     imagePreviewUrl?: string;
+    imageFiles?: File[];
+    images?: string[];
     location: string;
     country?: string;
   }) => {
@@ -1150,12 +1264,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error('Limite anti-spam atingido.');
     }
 
-    let imageUrl = data.imagePreviewUrl || DEFAULT_COVER;
-
-    if (data.imageFile) {
-      imageUrl = await processImageToDataUrl(data.imageFile, 800);
+    const processedImages: string[] = [];
+    if (data.imageFiles && data.imageFiles.length > 0) {
+      for (const f of data.imageFiles) {
+        const compressed = await processImageToDataUrl(f, 800);
+        processedImages.push(compressed);
+      }
+    } else if (data.images && data.images.length > 0) {
+      for (const img of data.images) {
+        if (img.startsWith('data:image/')) {
+          const compressed = await processImageToDataUrl(img, 800);
+          processedImages.push(compressed);
+        } else {
+          processedImages.push(img);
+        }
+      }
+    } else if (data.imageFile) {
+      const compressed = await processImageToDataUrl(data.imageFile, 800);
+      processedImages.push(compressed);
     } else if (data.imagePreviewUrl && data.imagePreviewUrl.startsWith('data:image/')) {
-      imageUrl = await processImageToDataUrl(data.imagePreviewUrl, 800);
+      const compressed = await processImageToDataUrl(data.imagePreviewUrl, 800);
+      processedImages.push(compressed);
+    }
+
+    // Check total images payload size (< 850 KB)
+    const totalChars = processedImages.reduce((sum, img) => sum + img.length, 0);
+    const estimatedTotalBytes = (totalChars * 3) / 4;
+    if (estimatedTotalBytes > 850 * 1024) {
+      showToast('As fotografias excedem o limite de tamanho. Remova algumas fotografias ou escolha imagens menores.');
+      throw new Error('Tamanho total das fotografias excedido.');
     }
 
     const postCurrency = data.currency || preferredCurrency || 'MZN';
@@ -1175,7 +1312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       condition: data.condition,
       category: data.category,
       description: data.description,
-      images: [imageUrl],
+      images: processedImages,
       likes: 0,
       likedBy: [],
       commentsCount: 0,
@@ -1223,6 +1360,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: string;
       imageFile?: File | null;
       imageUrl?: string;
+      imageFiles?: File[];
+      images?: string[];
       location: string;
       country?: string;
     }
@@ -1245,9 +1384,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error('Sem permissão.');
     }
 
-    let finalImageUrl = data.imageUrl || post.images[0] || DEFAULT_COVER;
-    if (data.imageFile) {
-      finalImageUrl = await processImageToDataUrl(data.imageFile, 800);
+    let finalImages: string[] = [];
+    if (data.imageFiles && data.imageFiles.length > 0) {
+      for (const f of data.imageFiles) {
+        finalImages.push(await processImageToDataUrl(f, 800));
+      }
+    } else if (data.images !== undefined) {
+      for (const img of data.images) {
+        if (img.startsWith('data:image/')) {
+          finalImages.push(await processImageToDataUrl(img, 800));
+        } else {
+          finalImages.push(img);
+        }
+      }
+    } else if (data.imageFile) {
+      finalImages = [await processImageToDataUrl(data.imageFile, 800)];
+    } else if (data.imageUrl !== undefined) {
+      finalImages = data.imageUrl ? [data.imageUrl] : [];
+    } else {
+      finalImages = post.images || [];
+    }
+
+    const totalChars = finalImages.reduce((sum, img) => sum + img.length, 0);
+    const estimatedTotalBytes = (totalChars * 3) / 4;
+    if (estimatedTotalBytes > 850 * 1024) {
+      showToast('As fotografias excedem o limite de tamanho. Remova algumas fotografias.');
+      throw new Error('Tamanho total das fotografias excedido.');
     }
 
     const updatedPayload = {
@@ -1258,7 +1420,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       condition: data.condition,
       category: data.category,
       description: data.description.trim(),
-      images: [finalImageUrl],
+      images: finalImages,
       location: data.location.trim() || user.location,
       updatedAt: new Date().toISOString(),
     };
@@ -1280,7 +1442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Toggle like on a post in Firestore
+  // Toggle like on a post in Firestore and manage notifications
   const toggleLikePost = async (postId: string) => {
     if (!user) return;
     const post = posts.find((p) => p.id === postId);
@@ -1296,12 +1458,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         likedBy: updatedLikedBy,
         likes: updatedLikedBy.length,
       });
+
+      // Notificação: criar ao curtir, remover ao descurtir (sem notificar a si próprio)
+      const targetSellerId = post.sellerId || post.seller?.id;
+      if (targetSellerId && targetSellerId !== user.id) {
+        const notifDocId = `like_${user.id}_${postId}`;
+        if (!hasLiked) {
+          await setDoc(doc(db, 'users', targetSellerId, 'notifications', notifDocId), {
+            type: 'like',
+            senderId: user.id,
+            senderName: user.name,
+            senderAvatar: user.avatar || DEFAULT_AVATAR,
+            postId: post.id,
+            postTitle: post.title,
+            description: `${user.name} gostou do teu anúncio "${post.title}".`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+        } else {
+          try {
+            await deleteDoc(doc(db, 'users', targetSellerId, 'notifications', notifDocId));
+          } catch {}
+        }
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `posts/${postId}`);
     }
   };
 
-  // Add comment in subcollection
+  // Add comment in subcollection and notify post owner
   const addComment = async (postId: string, text: string) => {
     if (!user || !text.trim()) return;
 
@@ -1321,6 +1506,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await updateDoc(doc(db, 'posts', postId), {
           commentsCount: (post.commentsCount || 0) + 1,
         });
+
+        // Notificar o proprietário do anúncio se for outro utilizador
+        const targetSellerId = post.sellerId || post.seller?.id;
+        if (targetSellerId && targetSellerId !== user.id) {
+          await addDoc(collection(db, 'users', targetSellerId, 'notifications'), {
+            type: 'comment',
+            senderId: user.id,
+            senderName: user.name,
+            senderAvatar: user.avatar || DEFAULT_AVATAR,
+            postId: post.id,
+            postTitle: post.title,
+            commentText: text.trim(),
+            description: `${user.name} perguntou no teu anúncio "${post.title}": "${text.trim().substring(0, 80)}"`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
 
       showToast('Comentário publicado!');
@@ -1340,13 +1542,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Chat and messaging
+  // Chat and messaging with text, voice, offers, and attachments (photos & documents)
   const sendMessage = async (
     conversationId: string, 
     text?: string, 
     offerPrice?: number,
     audioUrl?: string,
-    audioDuration?: number
+    audioDuration?: number,
+    attachment?: {
+      fileUrl: string;
+      fileName?: string;
+      fileSize?: string;
+      fileType: 'image' | 'file' | 'audio';
+    }
   ) => {
     if (!user) return;
 
@@ -1358,8 +1566,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hasText = Boolean(text && text.trim());
     const hasOffer = typeof offerPrice === 'number' && offerPrice > 0;
     const hasAudio = Boolean(audioUrl && audioUrl.length > 0);
+    const hasAttachment = Boolean(attachment && attachment.fileUrl);
 
-    if (!hasText && !hasOffer && !hasAudio) return;
+    if (!hasText && !hasOffer && !hasAudio && !hasAttachment) return;
 
     // Check voice message size (<800 KB)
     if (hasAudio && audioUrl) {
@@ -1370,12 +1579,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    // Check attachment size (<800 KB)
+    if (hasAttachment && attachment?.fileUrl) {
+      const estimatedBytes = (attachment.fileUrl.length * 3) / 4;
+      if (estimatedBytes > 800 * 1024) {
+        showToast('Ficheiro demasiado grande. O limite máximo é de 700 KB.');
+        throw new Error('Ficheiro demasiado grande.');
+      }
+    }
+
     let messageText = text?.trim() || '';
     if (hasAudio && !messageText) {
       messageText = 'Mensagem de voz';
+    } else if (hasAttachment && !messageText) {
+      messageText = attachment?.fileType === 'image' ? 'Fotografia' : (attachment?.fileName || 'Ficheiro em anexo');
     } else if (hasOffer && !messageText) {
       messageText = `Proposta de ${formatPrice(offerPrice!)}`;
     }
+
+    const nowIso = new Date().toISOString();
+    const formattedTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
@@ -1384,7 +1607,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       text: messageText,
       audioUrl: audioUrl || undefined,
       audioDuration: audioDuration || undefined,
-      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      fileUrl: attachment?.fileUrl,
+      fileName: attachment?.fileName,
+      fileSize: attachment?.fileSize,
+      fileType: attachment?.fileType,
+      timestamp: formattedTime,
+      createdAt: nowIso,
+      seenAt: null,
       isMine: true,
       offerPrice: hasOffer ? offerPrice : undefined,
     };
@@ -1394,7 +1623,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         c.id === conversationId
           ? {
               ...c,
-              lastMessage: hasAudio ? '🎤 Mensagem de voz' : newMsg.text,
+              lastMessage: hasAudio 
+                ? '🎤 Mensagem de voz' 
+                : hasAttachment 
+                  ? (attachment?.fileType === 'image' ? '📷 Fotografia' : '📎 Ficheiro') 
+                  : newMsg.text,
               lastMessageTime: 'Agora',
               messages: [...c.messages, newMsg],
             }
@@ -1402,7 +1635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    // Save to Firestore if available
+    // Save to Firestore
     try {
       const messageDocData = {
         conversationId,
@@ -1410,8 +1643,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: messageText,
         audioUrl: audioUrl || null,
         audioDuration: audioDuration || null,
+        fileUrl: attachment?.fileUrl || null,
+        fileName: attachment?.fileName || null,
+        fileSize: attachment?.fileSize || null,
+        fileType: attachment?.fileType || null,
         offerPrice: hasOffer ? offerPrice : null,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
+        seenAt: null,
       };
 
       await withTimeout(
@@ -1422,10 +1660,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Atualizar a última mensagem da conversa no Firestore
       try {
+        const lastSummary = hasAudio 
+          ? '🎤 Mensagem de voz' 
+          : hasAttachment 
+            ? (attachment?.fileType === 'image' ? '📷 Fotografia' : '📎 Ficheiro') 
+            : messageText;
+
         await updateDoc(doc(db, 'conversations', conversationId), {
-          lastMessage: hasAudio ? '🎤 Mensagem de voz' : messageText,
-          lastMessageTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          updatedAt: new Date().toISOString(),
+          lastMessage: lastSummary,
+          lastMessageTime: formattedTime,
+          updatedAt: nowIso,
         });
       } catch (updErr) {
         console.warn('Erro ao atualizar resumo da conversa:', updErr);
@@ -1661,10 +1905,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const markNotificationAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    if (user?.id) {
+      try {
+        await updateDoc(doc(db, 'users', user.id, 'notifications', id), { read: true });
+      } catch (err) {
+        console.warn('Erro ao atualizar estado da notificação:', err);
+      }
+    }
   };
 
   const markAllNotificationsAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    if (user?.id) {
+      const unread = notifications.filter((n) => !n.read);
+      for (const notif of unread) {
+        try {
+          await updateDoc(doc(db, 'users', user.id, 'notifications', notif.id), { read: true });
+        } catch {}
+      }
+    }
     showToast('Todas as notificações foram lidas.');
   };
 

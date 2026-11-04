@@ -56,11 +56,13 @@ export const MakeOfferModal: React.FC = () => {
         {/* Content */}
         <form onSubmit={handleSendOffer} className="p-4 space-y-3 text-xs">
           <div className="flex items-center gap-2.5 p-2 bg-neutral-100 dark:bg-neutral-900 rounded-sm">
-            <img
-              src={activeOfferPost.images[0]}
-              alt={activeOfferPost.title}
-              className="w-10 h-10 rounded-xs object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
-            />
+            {activeOfferPost.images?.[0] && (
+              <img
+                src={activeOfferPost.images[0]}
+                alt={activeOfferPost.title}
+                className="w-10 h-10 rounded-xs object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-black dark:text-white truncate">
                 {activeOfferPost.title}

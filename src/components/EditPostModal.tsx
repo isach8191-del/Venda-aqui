@@ -20,8 +20,9 @@ export const EditPostModal: React.FC = () => {
   const [category, setCategory] = useState<ProductCategory>('Eletrônicos & Tech');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,8 +35,9 @@ export const EditPostModal: React.FC = () => {
       setCategory(selectedEditPost.category);
       setDescription(selectedEditPost.description);
       setLocation(selectedEditPost.location || '');
-      setImagePreview(selectedEditPost.images?.[0] || null);
-      setImageFile(null);
+      setImages(selectedEditPost.images || []);
+      setNewImageFiles([]);
+      setNewImagePreviews([]);
       setError(null);
     }
   }, [selectedEditPost]);
@@ -52,12 +54,33 @@ export const EditPostModal: React.FC = () => {
   ];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-      setError(null);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const validFiles: File[] = [];
+    const validPreviews: string[] = [];
+
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Cada fotografia deve ter menos de 5MB');
+        continue;
+      }
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
     }
+
+    setNewImageFiles((prev) => [...prev, ...validFiles].slice(0, 8));
+    setNewImagePreviews((prev) => [...prev, ...validPreviews].slice(0, 8));
+    setError(null);
+  };
+
+  const removeExistingImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewImage = (index: number) => {
+    setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,8 +110,8 @@ export const EditPostModal: React.FC = () => {
         condition,
         category,
         description: description.trim(),
-        imageFile,
-        imageUrl: imagePreview || undefined,
+        images,
+        imageFiles: newImageFiles,
         location: location.trim(),
       });
     } catch (err: any) {
@@ -97,6 +120,8 @@ export const EditPostModal: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const totalPhotosCount = images.length + newImagePreviews.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
@@ -128,29 +153,68 @@ export const EditPostModal: React.FC = () => {
 
           {/* Photo Edit / Replace Area */}
           <div>
-            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
-              Fotografia do Anúncio (máx. 800px comprimida)
-            </label>
-            <div className="border border-dashed border-neutral-300 dark:border-neutral-700 rounded-sm p-3 text-center bg-neutral-50 dark:bg-neutral-900/50">
-              {imagePreview && (
-                <div className="relative aspect-video max-h-44 mx-auto overflow-hidden rounded-sm border border-neutral-200 dark:border-neutral-800 mb-2">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
+                Fotografias do Anúncio (Opcional — até 8 fotos)
+              </label>
+              <span className="text-[10px] text-neutral-400 font-mono">
+                {totalPhotosCount} {totalPhotosCount === 1 ? 'foto' : 'fotos'}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {totalPhotosCount > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {images.map((imgUrl, idx) => (
+                    <div key={`exist_${idx}`} className="relative aspect-square rounded-sm overflow-hidden border border-neutral-200 dark:border-neutral-800 group">
+                      <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(idx)}
+                        className="absolute top-1 right-1 p-1 bg-black/80 text-white rounded-full hover:bg-black transition-colors"
+                        title="Remover foto"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {newImagePreviews.map((preview, idx) => (
+                    <div key={`new_${idx}`} className="relative aspect-square rounded-sm overflow-hidden border border-neutral-200 dark:border-neutral-800 group">
+                      <img src={preview} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(idx)}
+                        className="absolute top-1 right-1 p-1 bg-black/80 text-white rounded-full hover:bg-black transition-colors"
+                        title="Remover foto nova"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 px-1 bg-emerald-600 text-white text-[9px] font-mono rounded">
+                        Nova
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
-              <label className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm border border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer transition-colors bg-white dark:bg-neutral-900">
-                <Camera className="w-3.5 h-3.5" />
-                <span>Trocar ou Atualizar Fotografia</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
+
+              {totalPhotosCount < 8 && (
+                <div className="border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm p-3 text-center bg-neutral-50 dark:bg-neutral-900/50 transition-colors">
+                  <label className="flex flex-col items-center justify-center cursor-pointer py-1.5">
+                    <Camera className="w-5 h-5 text-neutral-400 mb-1" />
+                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      + Adicionar ou atualizar fotografias
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 

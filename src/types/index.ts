@@ -33,6 +33,14 @@ export interface User {
   preferredLanguage?: LanguageCode;
   preferredCurrency?: string;
   createdAt?: string;
+  lastSeen?: string;
+}
+
+export function isUserOnline(lastSeen?: string): boolean {
+  if (!lastSeen) return false;
+  const time = new Date(lastSeen).getTime();
+  if (isNaN(time)) return false;
+  return Date.now() - time < 60000;
 }
 
 export type ShopType = 
@@ -163,7 +171,13 @@ export interface Message {
   text: string;
   audioUrl?: string;
   audioDuration?: number;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  fileType?: 'image' | 'file' | 'audio';
   timestamp: string;
+  createdAt?: string;
+  seenAt?: string | null;
   isMine: boolean;
   offerPrice?: number;
 }
@@ -187,13 +201,19 @@ export interface Conversation {
 
 export interface NotificationItem {
   id: string;
-  userId: string;
-  type: 'like' | 'comment' | 'message' | 'offer' | 'sale' | 'review';
+  userId?: string;
+  type: 'like' | 'comment' | 'message' | 'offer' | 'sale' | 'review' | 'system';
   title: string;
   description: string;
-  time: string;
+  time?: string;
+  createdAt?: string;
   read: boolean;
   postId?: string;
+  postTitle?: string;
+  commentText?: string;
+  senderId?: string;
+  senderName?: string;
+  senderAvatar?: string;
   userAvatar?: string;
 }
 

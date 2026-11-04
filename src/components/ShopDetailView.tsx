@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { ShopReview } from '../types';
+import { ShopReview, isUserOnline } from '../types';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -39,12 +39,16 @@ export const ShopDetailView: React.FC = () => {
     deleteShopProduct,
     fetchShopReviews,
     startChatWithUser,
-    showToast
+    showToast,
+    allUsers
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'catalog' | 'reviews'>('catalog');
   const [reviews, setReviews] = useState<ShopReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  const ownerUser = allUsers.find((u) => u.id === selectedShop?.ownerId);
+  const isOwnerOnline = isUserOnline(ownerUser?.lastSeen);
 
   useEffect(() => {
     if (selectedShop) {
@@ -142,11 +146,19 @@ export const ShopDetailView: React.FC = () => {
         <div className="px-4 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 sm:-mt-14 mb-3 gap-3">
             <div className="flex items-end gap-3.5">
-              <img
-                src={selectedShop.logo || DEFAULT_AVATAR}
-                alt={selectedShop.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-sm object-cover border-3 border-white dark:border-neutral-950 bg-white dark:bg-neutral-900 shadow-md shrink-0"
-              />
+              <div className="relative shrink-0">
+                <img
+                  src={selectedShop.logo || DEFAULT_AVATAR}
+                  alt={selectedShop.name}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-sm object-cover border-3 border-white dark:border-neutral-950 bg-white dark:bg-neutral-900 shadow-md block"
+                />
+                {isOwnerOnline && (
+                  <span
+                    className="absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-950"
+                    title="Vendedor online agora"
+                  />
+                )}
+              </div>
               <div className="pb-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h1 className="text-base sm:text-xl font-extrabold text-black dark:text-white uppercase tracking-tight">

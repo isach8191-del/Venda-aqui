@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Post } from '../types';
+import { Post, isUserOnline } from '../types';
 import { useApp } from '../context/AppContext';
 import { 
   Heart, 
@@ -16,7 +16,9 @@ import {
   Languages,
   Loader2,
   Sparkles,
-  Edit3
+  Edit3,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 import { ReviewModal } from './ReviewModal';
@@ -29,6 +31,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const { 
     user, 
     isAdmin,
+    allUsers,
     toggleLikePost, 
     setActiveCommentsPost, 
     setActiveOfferPost, 
@@ -48,6 +51,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   } = useApp();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
@@ -95,6 +99,25 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const formattedPrice = formatPrice(post.price, post.currency);
   const formattedTime = formatRelativePostTime(post.createdAt);
 
+  const isSellerOnline = isUserOnline(
+    post.seller?.lastSeen || allUsers.find((u) => u.id === (post.sellerId || post.seller?.id))?.lastSeen
+  );
+
+  const validImages = Array.isArray(post.images) 
+    ? post.images.filter((img) => Boolean(img && img.trim() && !img.includes('placeholder'))) 
+    : [];
+  const hasPhotos = validImages.length > 0;
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhotoIdx((prev) => (prev > 0 ? prev - 1 : validImages.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhotoIdx((prev) => (prev < validImages.length - 1 ? prev + 1 : 0));
+  };
+
   return (
     <article className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-sm overflow-hidden transition-colors duration-200 shadow-2xs">
       
@@ -105,14 +128,23 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
           className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
           title={`${t.post.seller}: ${post.seller.name}`}
         >
-          <img
-            src={post.seller.avatar || DEFAULT_AVATAR}
-            alt={post.seller.name}
-            className="w-9 h-9 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shrink-0 group-hover:opacity-80 transition-opacity"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
-            }}
-          />
+          <div className="relative shrink-0">
+            <img
+              src={post.seller.avatar || DEFAULT_AVATAR}
+              alt={post.seller.name}
+              className="w-9 h-9 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 group-hover:opacity-80 transition-opacity"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+              }}
+            />
+            {isSellerOnline && (
+              <span 
+                className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-black rounded-full" 
+                title="Vendedor online"
+              />
+            )}
+          </div>
+
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-bold text-xs sm:text-sm text-black dark:text-white truncate group-hover:underline">
@@ -174,36 +206,88 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         </div>
       </div>
 
-      {/* 2. Product Photo */}
-      <div className="relative bg-neutral-100 dark:bg-neutral-950 aspect-[4/3] w-full overflow-hidden flex items-center justify-center">
-        {!imageError && post.images?.[0] ? (
+      {/* 2. Product Photo Carousel (Apenas se tiver fotos; se não tiver fotos, não mostra caixa) */}
+      {hasPhotos && (
+        <div className="relative bg-neutral-100 dark:bg-neutral-950 aspect-[4/3] w-full overflow-hidden flex items-center justify-center select-none">
           <img
-            src={post.images[0]}
+            src={validImages[currentPhotoIdx] || validImages[0]}
             alt={post.title}
             onError={() => setImageError(true)}
             className="w-full h-full object-cover select-none"
             loading="lazy"
           />
-        ) : (
-          <div className="flex flex-col items-center justify-center p-6 text-center text-neutral-400">
-            <span className="text-xs font-semibold">{post.title}</span>
-            <span className="text-[10px] mt-1">{t.common.error}</span>
+
+          {/* Controlos do carrossel para múltiplos anúncios */}
+          {validImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevPhoto}
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black text-white backdrop-blur-xs transition-colors cursor-pointer"
+                title="Foto anterior"
+                aria-label="Foto anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPhoto}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black text-white backdrop-blur-xs transition-colors cursor-pointer"
+                title="Próxima foto"
+                aria-label="Próxima foto"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-sm bg-black/75 text-white text-[10px] font-mono font-bold tracking-wider">
+                {currentPhotoIdx + 1} / {validImages.length}
+              </div>
+
+              <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/60 px-2 py-1 rounded-full backdrop-blur-xs">
+                {validImages.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentPhotoIdx(idx);
+                    }}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      idx === currentPhotoIdx ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+                    }`}
+                    aria-label={`Foto ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Sober Price Tag */}
+          <div className="absolute bottom-2.5 left-2.5 rtl:left-auto rtl:right-2.5 bg-black/90 dark:bg-white/95 text-white dark:text-black px-2.5 py-1 rounded-sm backdrop-blur-xs font-black text-sm sm:text-base tracking-tight tabular-nums shadow-sm">
+            {formattedPrice}
           </div>
-        )}
 
-        {/* Sober Price Tag */}
-        <div className="absolute bottom-2.5 left-2.5 rtl:left-auto rtl:right-2.5 bg-black/90 dark:bg-white/95 text-white dark:text-black px-2.5 py-1 rounded-sm backdrop-blur-xs font-black text-sm sm:text-base tracking-tight tabular-nums shadow-sm">
-          {formattedPrice}
+          {/* Mobile category badge */}
+          <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 sm:hidden bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-sm uppercase">
+            {post.category}
+          </div>
         </div>
-
-        {/* Mobile category badge */}
-        <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 sm:hidden bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-sm uppercase">
-          {post.category}
-        </div>
-      </div>
+      )}
 
       {/* 3. Description & Details */}
       <div className="p-3 sm:p-3.5">
+        
+        {/* Se o anúncio não tiver fotos, exibe o preço de forma elegante aqui */}
+        {!hasPhotos && (
+          <div className="mb-2.5 flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-900">
+            <span className="text-base sm:text-lg font-black text-black dark:text-white font-mono tabular-nums">
+              {formattedPrice}
+            </span>
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900">
+              {post.category}
+            </span>
+          </div>
+        )}
         
         {/* Title & AI Translation Bar */}
         <div className="flex items-start justify-between gap-2">

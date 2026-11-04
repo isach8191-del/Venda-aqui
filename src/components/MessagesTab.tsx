@@ -7,16 +7,22 @@ import {
   MessageSquare, 
   ShieldCheck, 
   CheckCheck,
+  Check,
   Mic,
   Trash2,
   AlertTriangle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Paperclip,
+  FileText,
+  Download,
+  X
 } from 'lucide-react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Message } from '../types';
+import { Message, isUserOnline } from '../types';
 import { DEFAULT_AVATAR } from '../data/seedData';
+import { compressImage } from '../utils/imageCompressor';
 
 export const MessagesTab: React.FC = () => {
   const { 
@@ -25,7 +31,8 @@ export const MessagesTab: React.FC = () => {
     setActiveConversationId, 
     sendMessage,
     showToast,
-    user 
+    user,
+    allUsers 
   } = useApp();
 
   const [inputText, setInputText] = useState('');
@@ -33,7 +40,9 @@ export const MessagesTab: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0); // seconds
   const [isSendingAudio, setIsSendingAudio] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
   const [failedAudioDraft, setFailedAudioDraft] = useState<{ base64: string; duration: number } | null>(null);
+  const [selectedImagePreviewModal, setSelectedImagePreviewModal] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -41,6 +50,7 @@ export const MessagesTab: React.FC = () => {
   const timerIntervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
@@ -74,14 +84,25 @@ export const MessagesTab: React.FC = () => {
             text: data.text || '',
             audioUrl: data.audioUrl || undefined,
             audioDuration: data.audioDuration ? Number(data.audioDuration) : undefined,
+            fileUrl: data.fileUrl || undefined,
+            fileName: data.fileName || undefined,
+            fileSize: data.fileSize || undefined,
+            fileType: data.fileType || undefined,
             timestamp: formattedTime,
+            createdAt: data.createdAt || undefined,
+            seenAt: data.seenAt || null,
             isMine: data.senderId === user?.id,
             offerPrice: data.offerPrice ? Number(data.offerPrice) : undefined,
           };
         });
 
-        // Ordenar no código por data para não precisar de índice no Firestore
-        msgs.sort((a, b) => a.id.localeCompare(b.id));
+        // Ordenar no código por data ascendente (antigas em cima, novas embaixo)
+        msgs.sort((a, b) => {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (tA && tB && tA !== tB) return tA - tB;
+          return a.id.localeCompare(b.id);
+        });
 
         setRealtimeMessages(msgs);
       },
@@ -97,17 +118,33 @@ export const MessagesTab: React.FC = () => {
   // Rolar automaticamente para a mensagem mais recente em baixo
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [realtimeMessages.length]);
+  }, [activeConversationId, realtimeMessages.length]);
 
-  // Limpeza de streams de mídia ao desmontar
+  // Marcar como vistas (seenAt) as mensagens recebidas pelo utilizador atual
   useEffect(() => {
-    return () => {
-      cleanupRecording();
-    };
-  }, [activeConversationId]);
+    if (!activeConversationId || !user?.id || realtimeMessages.length === 0) return;
 
+    const unreadReceived = realtimeMessages.filter(
+      (m) => m.senderId !== user.id && !m.seenAt
+    );
+
+    if (unreadReceived.length === 0) return;
+
+    unreadReceived.forEach(async (m) => {
+      try {
+        await updateDoc(doc(db, 'conversations', activeConversationId, 'messages', m.id), {
+          seenAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        // Silencioso se permissões ou rede
+      }
+    });
+  }, [activeConversationId, user?.id, realtimeMessages]);
+
+  // Limpeza de gravação e streams de mídia
   const cleanupRecording = () => {
     setIsRecording(false);
+    setIsSendingAudio(false);
     setRecordingTime(0);
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -120,6 +157,12 @@ export const MessagesTab: React.FC = () => {
     mediaRecorderRef.current = null;
     audioChunksRef.current = [];
   };
+
+  useEffect(() => {
+    return () => {
+      cleanupRecording();
+    };
+  }, [activeConversationId]);
 
   // Iniciar gravação de voz (máximo 2 minutos, 16kbps)
   const startRecording = async () => {
@@ -247,7 +290,10 @@ export const MessagesTab: React.FC = () => {
   };
 
   const processAndSendAudioBlob = async (blob: Blob, durationSeconds: number) => {
-    if (!activeConversationId) return;
+    if (!activeConversationId) {
+      cleanupRecording();
+      return;
+    }
 
     setIsSendingAudio(true);
     let base64Audio = '';
@@ -301,6 +347,67 @@ export const MessagesTab: React.FC = () => {
     }
   };
 
+  // Enviar anexos (fotografias ou documentos)
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeConversationId) return;
+
+    setIsAttaching(true);
+    try {
+      const isImage = file.type.startsWith('image/');
+
+      if (isImage) {
+        const compressedBase64 = await compressImage(file, {
+          maxDimension: 800,
+          initialQuality: 0.6,
+          maxSizeBytes: 400 * 1024,
+        });
+
+        await sendMessage(
+          activeConversationId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          {
+            fileUrl: compressedBase64,
+            fileName: file.name,
+            fileSize: `${Math.round(file.size / 1024)} KB`,
+            fileType: 'image',
+          }
+        );
+        showToast('Fotografia enviada!');
+      } else {
+        if (file.size > 700 * 1024) {
+          showToast('Ficheiro demasiado grande. O limite máximo é de 700 KB.');
+          return;
+        }
+
+        const base64Doc = await blobToDataURL(file);
+        await sendMessage(
+          activeConversationId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          {
+            fileUrl: base64Doc,
+            fileName: file.name,
+            fileSize: `${Math.round(file.size / 1024)} KB`,
+            fileType: 'file',
+          }
+        );
+        showToast('Ficheiro enviado!');
+      }
+    } catch (err: any) {
+      console.error('Erro ao enviar anexo:', err);
+      showToast(err?.message || 'Erro ao enviar anexo.');
+    } finally {
+      setIsAttaching(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   // Enviar mensagem de texto (ao tocar no botão Enviar ou Enter)
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -338,13 +445,45 @@ export const MessagesTab: React.FC = () => {
     ? realtimeMessages 
     : (activeConversation?.messages || []);
 
+  // Presença do participante ativo
+  const otherUserInAllUsers = activeConversation
+    ? allUsers.find((u) => u.id === activeConversation.participant.id)
+    : undefined;
+  const participantLastSeen = activeConversation?.participant.lastSeen || otherUserInAllUsers?.lastSeen;
+  const isParticipantOnline = isUserOnline(participantLastSeen);
+
   return (
     <>
+      {/* Lightbox modal para imagem ampliada */}
+      {selectedImagePreviewModal && (
+        <div 
+          className="fixed inset-0 z-60 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedImagePreviewModal(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setSelectedImagePreviewModal(null)}
+              className="absolute -top-10 right-0 p-1.5 text-white hover:text-neutral-300 rounded-full bg-white/10"
+              aria-label="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={selectedImagePreviewModal}
+              alt="Ampliada"
+              className="max-w-full max-h-[85vh] object-contain rounded-md"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
+
       {/* View 1: Active Chat em Ecrã Inteiro */}
       {activeConversation ? (
         <div className="fixed inset-0 z-50 bg-white dark:bg-black flex flex-col h-full w-full animate-in fade-in duration-150">
           
-          {/* Header do Chat: Seta de voltar, Foto e Nome da pessoa */}
+          {/* Header do Chat: Seta de voltar, Foto com ponto online e Nome da pessoa */}
           <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-black shadow-xs shrink-0 pt-safe">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -356,11 +495,19 @@ export const MessagesTab: React.FC = () => {
                 <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
               </button>
 
-              <img
-                src={activeConversation.participant.avatar || DEFAULT_AVATAR}
-                alt={activeConversation.participant.name}
-                className="w-10 h-10 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
-              />
+              <div className="relative shrink-0">
+                <img
+                  src={activeConversation.participant.avatar || DEFAULT_AVATAR}
+                  alt={activeConversation.participant.name}
+                  className="w-10 h-10 rounded-full object-cover border border-neutral-300 dark:border-neutral-700"
+                />
+                {isParticipantOnline && (
+                  <span 
+                    className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-black rounded-full" 
+                    title="Online agora"
+                  />
+                )}
+              </div>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -371,9 +518,22 @@ export const MessagesTab: React.FC = () => {
                     <ShieldCheck className="w-4 h-4 text-black dark:text-white shrink-0" />
                   )}
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                  {activeConversation.participant.username ? `@${activeConversation.participant.username.replace('@', '')}` : 'Online'}
-                  {activeConversation.participant.location ? ` · ${activeConversation.participant.location}` : ''}
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate flex items-center gap-1.5">
+                  <span className={isParticipantOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                    {isParticipantOnline ? 'Online agora' : 'Offline'}
+                  </span>
+                  {activeConversation.participant.username && (
+                    <>
+                      <span>·</span>
+                      <span>@{activeConversation.participant.username.replace('@', '')}</span>
+                    </>
+                  )}
+                  {activeConversation.participant.location && (
+                    <>
+                      <span>·</span>
+                      <span>{activeConversation.participant.location}</span>
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -381,11 +541,13 @@ export const MessagesTab: React.FC = () => {
             {/* Referência do anúncio se existir */}
             {activeConversation.product && (
               <div className="flex items-center gap-2 max-w-[150px] sm:max-w-[180px] bg-neutral-100 dark:bg-neutral-900 p-1.5 rounded-sm border border-neutral-200 dark:border-neutral-800 shrink-0">
-                <img
-                  src={activeConversation.product.image}
-                  alt={activeConversation.product.title}
-                  className="w-8 h-8 rounded-xs object-cover shrink-0"
-                />
+                {activeConversation.product.image && (
+                  <img
+                    src={activeConversation.product.image}
+                    alt={activeConversation.product.title}
+                    className="w-8 h-8 rounded-xs object-cover shrink-0"
+                  />
+                )}
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold text-black dark:text-white truncate">
                     {activeConversation.product.title}
@@ -452,11 +614,13 @@ export const MessagesTab: React.FC = () => {
             </div>
           )}
 
-          {/* Ao centro: Lista de mensagens (a mais recente em baixo, atualizada em tempo real) */}
+          {/* Ao centro: Lista de mensagens (ordem crescente: antigas em cima, novas embaixo) */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50/50 dark:bg-neutral-950/50">
             {displayMessages.map((msg) => {
               const isMine = msg.isMine || msg.senderId === user?.id;
               const hasAudio = Boolean(msg.audioUrl);
+              const isImage = msg.fileType === 'image' || (msg.fileUrl && (msg.fileUrl.startsWith('data:image/') || msg.fileUrl.match(/\.(jpeg|jpg|png|gif|webp)/i)));
+              const isFile = msg.fileUrl && !isImage;
 
               return (
                 <div
@@ -470,7 +634,8 @@ export const MessagesTab: React.FC = () => {
                         : 'bg-white text-black dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 shadow-2xs'
                     }`}
                   >
-                    {hasAudio ? (
+                    {/* Áudio */}
+                    {hasAudio && (
                       <div className="space-y-1">
                         <VoicePlayer 
                           audioUrl={msg.audioUrl!} 
@@ -483,13 +648,75 @@ export const MessagesTab: React.FC = () => {
                           </p>
                         )}
                       </div>
-                    ) : (
-                      msg.text
                     )}
+
+                    {/* Imagem */}
+                    {isImage && msg.fileUrl && (
+                      <div className="space-y-1.5">
+                        <img
+                          src={msg.fileUrl}
+                          alt={msg.fileName || 'Fotografia'}
+                          onClick={() => setSelectedImagePreviewModal(msg.fileUrl!)}
+                          className="max-h-60 rounded-md object-cover cursor-pointer hover:opacity-90 transition-opacity border border-neutral-200 dark:border-neutral-800"
+                        />
+                        {msg.text && msg.text !== 'Fotografia' && (
+                          <p className="text-[11px] pt-1 opacity-90">
+                            {msg.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Ficheiro Documento */}
+                    {isFile && msg.fileUrl && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-5 h-5 shrink-0 text-black dark:text-white" />
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate max-w-[170px] sm:max-w-[220px] text-black dark:text-white">
+                                {msg.fileName || 'Ficheiro'}
+                              </p>
+                              {msg.fileSize && (
+                                <p className="text-[10px] text-neutral-500">{msg.fileSize}</p>
+                              )}
+                            </div>
+                          </div>
+                          <a
+                            href={msg.fileUrl}
+                            download={msg.fileName || 'documento'}
+                            className="p-1.5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 text-black dark:text-white transition-colors shrink-0"
+                            title="Descarregar ficheiro"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                        {msg.text && msg.text !== 'Ficheiro em anexo' && msg.text !== msg.fileName && (
+                          <p className="text-[11px] pt-1 opacity-90">
+                            {msg.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Texto simples */}
+                    {!hasAudio && !isImage && !isFile && msg.text}
                   </div>
+
+                  {/* Hora e Vistos (1 cinzento enviado, 2 azuis visualizado) */}
                   <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-neutral-400 font-mono">
                     <span>{msg.timestamp}</span>
-                    {isMine && <CheckCheck className="w-3 h-3 text-neutral-400" />}
+                    {isMine && (
+                      msg.seenAt ? (
+                        <span title="Visualizada" className="inline-flex items-center">
+                          <CheckCheck className="w-3.5 h-3.5 text-blue-500 stroke-[2.2]" />
+                        </span>
+                      ) : (
+                        <span title="Enviada" className="inline-flex items-center">
+                          <Check className="w-3.5 h-3.5 text-neutral-400 stroke-[2]" />
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
               );
@@ -508,7 +735,7 @@ export const MessagesTab: React.FC = () => {
             </div>
           )}
 
-          {/* Em baixo, fixa: Caixa de texto "Escreve uma mensagem..." e Botão "Enviar" bem visível com ícone de seta */}
+          {/* Em baixo, fixa: Anexos, Microfone, Caixa de texto e Botão Enviar */}
           <div className="border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black p-3 shrink-0 pb-safe">
             {isRecording ? (
               /* Barra de Gravação de Voz */
@@ -560,11 +787,34 @@ export const MessagesTab: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* Formulário com envio por Enter e botão Enviar com ícone de seta */
+              /* Formulário com anexo, mic, texto e botão Enviar */
               <form
                 onSubmit={handleSend}
                 className="flex items-center gap-2"
               >
+                {/* Botão de Anexo (Fotos e Documentos) */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSendingAudio || isAttaching}
+                  className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                  title="Anexar fotografia ou ficheiro (máx. 700 KB)"
+                  aria-label="Anexar ficheiro"
+                >
+                  {isAttaching ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-black dark:text-white" />
+                  ) : (
+                    <Paperclip className="w-4 h-4" />
+                  )}
+                </button>
+
                 <input
                   type="text"
                   value={inputText}
@@ -582,8 +832,8 @@ export const MessagesTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={startRecording}
-                  disabled={isSendingAudio}
-                  className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer shrink-0"
+                  disabled={isSendingAudio || isAttaching}
+                  className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                   title="Gravar mensagem de voz (máx. 2 minutos)"
                   aria-label="Gravar mensagem de voz"
                 >
@@ -592,7 +842,7 @@ export const MessagesTab: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={!inputText.trim() || isSendingAudio}
+                  disabled={!inputText.trim() || isSendingAudio || isAttaching}
                   className="py-2 px-3.5 bg-black dark:bg-white text-white dark:text-black rounded-sm hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider cursor-pointer shrink-0"
                   aria-label="Enviar mensagem"
                 >
@@ -605,7 +855,7 @@ export const MessagesTab: React.FC = () => {
 
         </div>
       ) : (
-        /* View 2: Lista de Conversas com título corrigido MENSAGENS E NEGOCIAÇÕES */
+        /* View 2: Lista de Conversas com título MENSAGENS E NEGOCIAÇÕES e ponto verde online */
         <div className="max-w-2xl mx-auto px-4 py-5 flex-1 flex flex-col space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2.5">
             <div className="flex items-center gap-2 min-w-0">
@@ -621,46 +871,66 @@ export const MessagesTab: React.FC = () => {
 
           <div className="space-y-2 overflow-y-auto flex-1">
             {conversations.length > 0 ? (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setActiveConversationId(conv.id)}
-                  className="w-full text-left p-3.5 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors rounded-xl flex items-center gap-3 group cursor-pointer"
-                >
-                  <img
-                    src={conv.participant.avatar || DEFAULT_AVATAR}
-                    alt={conv.participant.name}
-                    className="w-12 h-12 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
-                  />
+              conversations.map((conv) => {
+                const otherUser = allUsers.find((u) => u.id === conv.participant.id);
+                const convParticipantOnline = isUserOnline(conv.participant.lastSeen || otherUser?.lastSeen);
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm text-black dark:text-white truncate">
-                        {conv.participant.name}
-                      </span>
-                      <span className="text-[11px] text-neutral-400 font-mono shrink-0 ml-2">
-                        {conv.lastMessageTime}
-                      </span>
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => setActiveConversationId(conv.id)}
+                    className="w-full text-left p-3.5 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors rounded-xl flex items-center gap-3 group cursor-pointer"
+                  >
+                    <div className="relative shrink-0">
+                      <img
+                        src={conv.participant.avatar || DEFAULT_AVATAR}
+                        alt={conv.participant.name}
+                        className="w-12 h-12 rounded-full object-cover border border-neutral-300 dark:border-neutral-700"
+                      />
+                      {convParticipantOnline && (
+                        <span 
+                          className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-black rounded-full" 
+                          title="Online agora"
+                        />
+                      )}
                     </div>
 
-                    {conv.product && (
-                      <p className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 truncate">
-                        Ref: {conv.product.title} (R$ {conv.product.price.toLocaleString('pt-BR')})
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-sm text-black dark:text-white truncate">
+                            {conv.participant.name}
+                          </span>
+                          {convParticipantOnline && (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
+                              · Online
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-neutral-400 font-mono shrink-0 ml-2">
+                          {conv.lastMessageTime}
+                        </span>
+                      </div>
+
+                      {conv.product && (
+                        <p className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 truncate">
+                          Ref: {conv.product.title} (R$ {conv.product.price.toLocaleString('pt-BR')})
+                        </p>
+                      )}
+
+                      <p className="text-xs text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
+                        {conv.lastMessage}
                       </p>
+                    </div>
+
+                    {conv.unreadCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center shrink-0">
+                        {conv.unreadCount}
+                      </span>
                     )}
-
-                    <p className="text-xs text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
-                      {conv.lastMessage}
-                    </p>
-                  </div>
-
-                  {conv.unreadCount > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center shrink-0">
-                      {conv.unreadCount}
-                    </span>
-                  )}
-                </button>
-              ))
+                  </button>
+                );
+              })
             ) : (
               <div className="text-center py-16 text-neutral-400">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />

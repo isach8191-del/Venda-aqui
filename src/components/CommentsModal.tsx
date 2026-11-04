@@ -138,6 +138,27 @@ export const CommentsModal: React.FC = () => {
         console.warn('Erro ao atualizar contador:', countErr);
       }
 
+      // 3. Notificar o vendedor do anúncio (se for outro utilizador)
+      const sellerId = activeCommentsPost.sellerId || activeCommentsPost.seller?.id;
+      if (sellerId && sellerId !== user.id) {
+        try {
+          await addDoc(collection(db, 'users', sellerId, 'notifications'), {
+            type: 'comment',
+            senderId: user.id,
+            senderName: user.name,
+            senderAvatar: user.avatar || DEFAULT_AVATAR,
+            postId: activeCommentsPost.id,
+            postTitle: activeCommentsPost.title,
+            commentText: textToSend,
+            description: `${user.name} perguntou no teu anúncio "${activeCommentsPost.title}": "${textToSend.substring(0, 80)}"`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+        } catch (notifErr) {
+          console.warn('Erro ao criar notificação de comentário:', notifErr);
+        }
+      }
+
       setCommentText('');
       showToast('Comentário publicado com sucesso!');
     } catch (err: any) {
@@ -221,11 +242,13 @@ export const CommentsModal: React.FC = () => {
 
         {/* Product mini bar */}
         <div className="px-3.5 py-2 bg-neutral-100/70 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2.5">
-          <img
-            src={activeCommentsPost.images[0] || DEFAULT_AVATAR}
-            alt={activeCommentsPost.title}
-            className="w-9 h-9 object-cover rounded-xs border border-neutral-300 dark:border-neutral-700 shrink-0"
-          />
+          {activeCommentsPost.images?.[0] && (
+            <img
+              src={activeCommentsPost.images[0]}
+              alt={activeCommentsPost.title}
+              className="w-9 h-9 object-cover rounded-xs border border-neutral-300 dark:border-neutral-700 shrink-0"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-black dark:text-white truncate">
               {activeCommentsPost.title}

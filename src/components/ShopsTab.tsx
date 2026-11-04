@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { ShopType, Shop } from '../types';
+import { ShopType, Shop, isUserOnline } from '../types';
 import { 
   Store, 
   Search, 
@@ -37,7 +37,8 @@ export const ShopsTab: React.FC = () => {
     shopsLoading, 
     openShopDetail, 
     setIsRegisterShopModalOpen, 
-    user 
+    user,
+    allUsers 
   } = useApp();
 
   const [search, setSearch] = useState('');
@@ -251,12 +252,18 @@ export const ShopsTab: React.FC = () => {
                 </div>
 
                 {/* Logo floating */}
-                <div className="absolute -bottom-3 left-3">
+                <div className="absolute -bottom-3 left-3 relative">
                   <img
                     src={shop.logo || DEFAULT_AVATAR}
                     alt={shop.name}
-                    className="w-12 h-12 rounded-sm object-cover border-2 border-white dark:border-neutral-950 bg-white dark:bg-neutral-900 shadow-sm"
+                    className="w-12 h-12 rounded-sm object-cover border-2 border-white dark:border-neutral-950 bg-white dark:bg-neutral-900 shadow-sm block"
                   />
+                  {isUserOnline(allUsers.find((u) => u.id === shop.ownerId)?.lastSeen) && (
+                    <span
+                      className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-neutral-950"
+                      title="Vendedor online"
+                    />
+                  )}
                 </div>
               </div>
 

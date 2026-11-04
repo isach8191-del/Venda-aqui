@@ -30,9 +30,9 @@ export const CreatePostModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(user?.location || 'Maputo');
   
-  // Real image upload state
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // Real multi-image upload state (0, 1 or multiple photos)
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,16 +48,29 @@ export const CreatePostModal: React.FC = () => {
   ];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const validFiles: File[] = [];
+    const validPreviews: string[] = [];
+
+    for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        setError('A fotografia do anúncio deve ter menos de 5MB');
-        return;
+        setError('Cada fotografia deve ter menos de 5MB');
+        continue;
       }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-      setError(null);
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
     }
+
+    setImageFiles((prev) => [...prev, ...validFiles].slice(0, 8));
+    setImagePreviews((prev) => [...prev, ...validPreviews].slice(0, 8));
+    setError(null);
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,10 +88,6 @@ export const CreatePostModal: React.FC = () => {
       setError(t.createPost.descriptionLabel);
       return;
     }
-    if (!imageFile && !imagePreview) {
-      setError(t.createPost.photosLabel);
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -92,8 +101,7 @@ export const CreatePostModal: React.FC = () => {
         condition,
         category,
         description: description.trim(),
-        imageFile,
-        imagePreviewUrl: imagePreview || undefined,
+        imageFiles,
         location: location.trim(),
       });
 
@@ -101,8 +109,8 @@ export const CreatePostModal: React.FC = () => {
       setTitle('');
       setPrice('');
       setDescription('');
-      setImageFile(null);
-      setImagePreview(null);
+      setImageFiles([]);
+      setImagePreviews([]);
       setIsCreatePostModalOpen(false);
     } catch (err: any) {
       setError(err?.message || 'Erro ao publicar anúncio.');
@@ -139,46 +147,60 @@ export const CreatePostModal: React.FC = () => {
             </div>
           )}
 
-          {/* Photo Upload Area */}
+          {/* Photo Upload Area (0, 1 ou várias) */}
           <div>
-            <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
-              {t.createPost.photosLabel}
-            </label>
-            <div className="border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm p-4 text-center bg-neutral-50 dark:bg-neutral-900/50 transition-colors">
-              {imagePreview ? (
-                <div className="relative aspect-video max-h-48 mx-auto overflow-hidden rounded-sm border border-neutral-200 dark:border-neutral-800">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setImagePreview(null);
-                    }}
-                    className="absolute top-2 right-2 p-1 bg-black/80 text-white rounded-full hover:bg-black transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
+                Fotografias (Opcional — até 8 fotos)
+              </label>
+              {imagePreviews.length > 0 && (
+                <span className="text-[10px] text-neutral-400 font-mono">
+                  {imagePreviews.length} {imagePreviews.length === 1 ? 'foto' : 'fotos'}
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {imagePreviews.map((preview, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-sm overflow-hidden border border-neutral-200 dark:border-neutral-800 group">
+                      <img src={preview} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 p-1 bg-black/80 text-white rounded-full hover:bg-black transition-colors"
+                        title="Remover foto"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 px-1 bg-black/70 text-white text-[9px] font-mono rounded">
+                        #{idx + 1}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center cursor-pointer py-2">
-                  <Camera className="w-6 h-6 text-neutral-400 mb-1.5" />
-                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                    Carregar fotografia do telemóvel ou câmara
-                  </span>
-                  <span className="text-[10px] text-neutral-400 mt-1">
-                    {t.createPost.photosHint}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                </label>
+              )}
+
+              {imagePreviews.length < 8 && (
+                <div className="border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white rounded-sm p-3 text-center bg-neutral-50 dark:bg-neutral-900/50 transition-colors">
+                  <label className="flex flex-col items-center justify-center cursor-pointer py-1.5">
+                    <Camera className="w-5 h-5 text-neutral-400 mb-1" />
+                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      {imagePreviews.length === 0 ? 'Adicionar fotografias (opcional)' : '+ Adicionar mais fotos'}
+                    </span>
+                    <span className="text-[10px] text-neutral-400 mt-0.5">
+                      Pode publicar com texto apenas ou adicionar fotos do telemóvel
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               )}
             </div>
           </div>

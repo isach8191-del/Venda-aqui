@@ -16,7 +16,9 @@ export const NotificationsTab: React.FC = () => {
     markNotificationAsRead, 
     markAllNotificationsAsRead, 
     setActiveTab, 
-    setActiveConversationId 
+    setActiveConversationId,
+    posts,
+    setActiveCommentsPost 
   } = useApp();
 
   const getIcon = (type: string) => {
@@ -32,9 +34,24 @@ export const NotificationsTab: React.FC = () => {
     }
   };
 
-  const handleClick = (notifId: string, type: string) => {
-    markNotificationAsRead(notifId);
-    if (type === 'message' || type === 'offer') {
+  const handleClick = (notif: any) => {
+    markNotificationAsRead(notif.id);
+    if (notif.postId) {
+      const targetPost = posts.find((p) => p.id === notif.postId);
+      if (targetPost) {
+        if (notif.type === 'comment') {
+          setActiveCommentsPost(targetPost);
+        } else {
+          setActiveTab('feed');
+          setTimeout(() => {
+            const el = document.getElementById(`produto-${notif.postId}`);
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+        return;
+      }
+    }
+    if (notif.type === 'message' || notif.type === 'offer') {
       setActiveTab('messages');
     } else {
       setActiveTab('feed');
@@ -67,7 +84,7 @@ export const NotificationsTab: React.FC = () => {
           notifications.map((notif) => (
             <div
               key={notif.id}
-              onClick={() => handleClick(notif.id, notif.type)}
+              onClick={() => handleClick(notif)}
               className={`p-3 rounded-sm border transition-all cursor-pointer flex items-start gap-3 ${
                 notif.read
                   ? 'bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 opacity-80 hover:opacity-100'

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PostCard } from './PostCard';
 import { ReviewModal } from './ReviewModal';
-import { Review } from '../types';
+import { Review, isUserOnline } from '../types';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -25,6 +25,7 @@ export const UserProfileView: React.FC = () => {
     selectedProfileUser, 
     closeUserProfile, 
     user, 
+    allUsers,
     posts, 
     setIsEditProfileOpen,
     setActiveTab,
@@ -127,13 +128,19 @@ export const UserProfileView: React.FC = () => {
         <div className="px-4 sm:px-6 pb-5 pt-0 relative">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-14 sm:-mt-16 mb-4">
             
-            {/* Overlapping Avatar */}
+            {/* Overlapping Avatar with online status */}
             <div className="relative inline-block shrink-0">
               <img
                 src={selectedProfileUser.avatar || DEFAULT_AVATAR}
                 alt={selectedProfileUser.name}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-white dark:border-black bg-neutral-100 dark:bg-neutral-900 shadow-md"
               />
+              {isUserOnline(selectedProfileUser.lastSeen || allUsers.find(u => u.id === selectedProfileUser.id)?.lastSeen) && (
+                <span 
+                  className="absolute bottom-1 left-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-black rounded-full shadow-xs" 
+                  title="Online agora"
+                />
+              )}
               {selectedProfileUser.verified && (
                 <div 
                   className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center border-2 border-white dark:border-black shadow-xs" 
