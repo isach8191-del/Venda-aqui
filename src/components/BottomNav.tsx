@@ -10,13 +10,17 @@ export const BottomNav: React.FC = () => {
     unreadNotificationsCount, 
     unreadMessagesCount,
     closeUserProfile,
-    closeShopDetail 
+    closeShopDetail,
+    setActiveConversationId 
   } = useApp();
 
   const handleTabClick = (tabId: ActiveTab) => {
     closeUserProfile();
     if (tabId !== 'shop_detail') {
       closeShopDetail();
+    }
+    if (tabId !== 'messages') {
+      setActiveConversationId(null);
     }
     setActiveTab(tabId);
   };

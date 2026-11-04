@@ -29,6 +29,7 @@ export const MessagesTab: React.FC = () => {
     conversations, 
     activeConversationId, 
     setActiveConversationId, 
+    setActiveTab,
     sendMessage,
     showToast,
     user,
@@ -53,6 +54,37 @@ export const MessagesTab: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
+
+  // Gestão do botão "Voltar" do Android e do navegador para fechar o chat
+  useEffect(() => {
+    if (!activeConversationId) return;
+
+    if (!window.history.state?.chat) {
+      window.history.pushState({ chat: true }, '');
+    }
+
+    const handlePopState = () => {
+      setActiveConversationId(null);
+      setActiveTab('messages');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [activeConversationId, setActiveConversationId, setActiveTab]);
+
+  const handleCloseChat = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setActiveConversationId(null);
+    setActiveTab('messages');
+    if (window.history.state?.chat) {
+      window.history.back();
+    }
+  };
 
   // Escuta de mensagens em tempo real da conversa ativa no Firestore
   useEffect(() => {
@@ -484,12 +516,12 @@ export const MessagesTab: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-white dark:bg-black flex flex-col h-full w-full animate-in fade-in duration-150">
           
           {/* Header do Chat: Seta de voltar, Foto com ponto online e Nome da pessoa */}
-          <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-black shadow-xs shrink-0 pt-safe">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="relative z-20 p-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-black shadow-xs shrink-0 pt-safe pointer-events-auto">
+            <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
-                onClick={() => setActiveConversationId(null)}
-                className="p-1.5 -ml-1 text-black dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded-full cursor-pointer transition-colors"
+                onClick={handleCloseChat}
+                className="p-3 -ml-2 text-black dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded-full cursor-pointer transition-colors z-30 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center pointer-events-auto"
                 aria-label="Voltar para lista de conversas"
               >
                 <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
@@ -790,7 +822,7 @@ export const MessagesTab: React.FC = () => {
               /* Formulário com anexo, mic, texto e botão Enviar */
               <form
                 onSubmit={handleSend}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full"
               >
                 {/* Botão de Anexo (Fotos e Documentos) */}
                 <input
@@ -826,7 +858,7 @@ export const MessagesTab: React.FC = () => {
                     }
                   }}
                   placeholder="Escreve uma mensagem..."
-                  className="flex-1 px-3.5 py-2 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
+                  className="flex-1 min-w-0 px-3.5 py-2 text-xs rounded-sm border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white"
                 />
 
                 <button
@@ -847,7 +879,7 @@ export const MessagesTab: React.FC = () => {
                   aria-label="Enviar mensagem"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Enviar</span>
+                  <span className="hidden sm:inline">Enviar</span>
                 </button>
               </form>
             )}

@@ -61,6 +61,12 @@ service cloud.firestore {
         allow create: if isSignedIn() && incoming().buyerId == request.auth.uid;
         allow update, delete: if isAdmin() || (isSignedIn() && existing().buyerId == request.auth.uid);
       }
+
+      // Subcollection: Notifications received by the user
+      match /notifications/{notificationId} {
+        allow read, update, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      }
     }
 
     // Posts / Listings
@@ -150,15 +156,16 @@ service cloud.firestore {
         allow create: if isSignedIn() &&
           incoming().senderId == request.auth.uid &&
           notBlocked();
-        allow update, delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
+        allow update: if isSignedIn() && (
+          isAdmin() ||
+          existing().senderId == request.auth.uid ||
+          (
+            request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['seenAt'])
+          )
+        );
+        allow delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
       }
-    }
-
-    // Notifications
-    match /notifications/{notificationId} {
-      allow read: if isSignedIn() && existing().userId == request.auth.uid;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
   }
 }

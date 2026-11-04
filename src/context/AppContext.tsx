@@ -168,17 +168,12 @@ interface AppContextType {
   addComment: (postId: string, text: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   sendMessage: (
-    conversationId: string, 
-    text?: string, 
-    offerPrice?: number, 
-    audioUrl?: string, 
+    conversationId: string,
+    text?: string,
+    offerPrice?: number,
+    audioUrl?: string,
     audioDuration?: number,
-    attachment?: {
-      fileUrl: string;
-      fileName?: string;
-      fileSize?: string;
-      fileType: 'image' | 'file' | 'audio';
-    }
+    file?: { fileUrl: string; fileName?: string; fileSize?: string; fileType?: string }
   ) => Promise<void>;
   startChatWithSeller: (post: Post, initialGreeting?: string) => Promise<void>;
   startChatWithUser: (
@@ -1542,35 +1537,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Chat and messaging with text, voice, offers, and attachments (photos & documents)
   const sendMessage = async (
-    conversationId: string, 
-    text?: string, 
+    conversationId: string,
+    text?: string,
     offerPrice?: number,
     audioUrl?: string,
     audioDuration?: number,
-    attachment?: {
-      fileUrl: string;
-      fileName?: string;
-      fileSize?: string;
-      fileType: 'image' | 'file' | 'audio';
-    }
+    file?: { fileUrl: string; fileName?: string; fileSize?: string; fileType?: string }
   ) => {
     if (!user) return;
-
     if (user.isBlocked) {
       showToast('A sua conta está bloqueada e não pode enviar mensagens.');
       throw new Error('Conta suspensa.');
     }
-
     const hasText = Boolean(text && text.trim());
     const hasOffer = typeof offerPrice === 'number' && offerPrice > 0;
     const hasAudio = Boolean(audioUrl && audioUrl.length > 0);
-    const hasAttachment = Boolean(attachment && attachment.fileUrl);
+    const hasFile = Boolean(file && file.fileUrl);
+    if (!hasText && !hasOffer && !hasAudio && !hasFile) return;
 
-    if (!hasText && !hasOffer && !hasAudio && !hasAttachment) return;
-
-    // Check voice message size (<800 KB)
     if (hasAudio && audioUrl) {
       const estimatedBytes = (audioUrl.length * 3) / 4;
       if (estimatedBytes > 800 * 1024) {
@@ -1578,106 +1563,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('Mensagem de voz demasiado grande, grava uma mais curta.');
       }
     }
-
-    // Check attachment size (<800 KB)
-    if (hasAttachment && attachment?.fileUrl) {
-      const estimatedBytes = (attachment.fileUrl.length * 3) / 4;
-      if (estimatedBytes > 800 * 1024) {
-        showToast('Ficheiro demasiado grande. O limite máximo é de 700 KB.');
-        throw new Error('Ficheiro demasiado grande.');
+    if (hasFile && file) {
+      const estimatedBytes = (file.fileUrl.length * 3) / 4;
+      if (estimatedBytes > 900 * 1024) {
+        showToast('Ficheiro demasiado grande para enviar.');
+        throw new Error('Ficheiro demasiado grande para enviar.');
       }
     }
 
     let messageText = text?.trim() || '';
-    if (hasAudio && !messageText) {
-      messageText = 'Mensagem de voz';
-    } else if (hasAttachment && !messageText) {
-      messageText = attachment?.fileType === 'image' ? 'Fotografia' : (attachment?.fileName || 'Ficheiro em anexo');
-    } else if (hasOffer && !messageText) {
-      messageText = `Proposta de ${formatPrice(offerPrice!)}`;
+    if (!messageText) {
+      if (hasAudio) messageText = 'Mensagem de voz';
+      else if (hasOffer) messageText = `Proposta de ${formatPrice(offerPrice!)}`;
+      else if (hasFile) messageText = file?.fileType === 'image' ? 'Fotografia' : 'Ficheiro em anexo';
     }
+    let summary = messageText;
+    if (hasAudio) summary = '🎤 Mensagem de voz';
+    else if (hasFile) summary = file?.fileType === 'image' ? '📷 Fotografia' : `📎 ${file?.fileName || 'Ficheiro'}`;
 
-    const nowIso = new Date().toISOString();
-    const formattedTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const newMsg: Message = {
-      id: `msg_${Date.now()}`,
-      conversationId,
-      senderId: user.id,
-      text: messageText,
-      audioUrl: audioUrl || undefined,
-      audioDuration: audioDuration || undefined,
-      fileUrl: attachment?.fileUrl,
-      fileName: attachment?.fileName,
-      fileSize: attachment?.fileSize,
-      fileType: attachment?.fileType,
-      timestamp: formattedTime,
-      createdAt: nowIso,
-      seenAt: null,
-      isMine: true,
-      offerPrice: hasOffer ? offerPrice : undefined,
-    };
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === conversationId
-          ? {
-              ...c,
-              lastMessage: hasAudio 
-                ? '🎤 Mensagem de voz' 
-                : hasAttachment 
-                  ? (attachment?.fileType === 'image' ? '📷 Fotografia' : '📎 Ficheiro') 
-                  : newMsg.text,
-              lastMessageTime: 'Agora',
-              messages: [...c.messages, newMsg],
-            }
-          : c
-      )
-    );
-
-    // Save to Firestore
     try {
-      const messageDocData = {
-        conversationId,
-        senderId: user.id,
-        text: messageText,
-        audioUrl: audioUrl || null,
-        audioDuration: audioDuration || null,
-        fileUrl: attachment?.fileUrl || null,
-        fileName: attachment?.fileName || null,
-        fileSize: attachment?.fileSize || null,
-        fileType: attachment?.fileType || null,
-        offerPrice: hasOffer ? offerPrice : null,
-        createdAt: nowIso,
-        seenAt: null,
-      };
-
       await withTimeout(
-        addDoc(collection(db, 'conversations', conversationId, 'messages'), messageDocData),
+        addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+          conversationId,
+          senderId: user.id,
+          text: messageText,
+          audioUrl: audioUrl || null,
+          audioDuration: audioDuration || null,
+          fileUrl: file?.fileUrl || null,
+          fileName: file?.fileName || null,
+          fileSize: file?.fileSize || null,
+          fileType: file?.fileType || null,
+          offerPrice: hasOffer ? offerPrice : null,
+          seenAt: null,
+          createdAt: new Date().toISOString(),
+        }),
         20000,
         'O envio demorou mais de 20 segundos. Por favor, tente novamente.'
       );
-
-      // Atualizar a última mensagem da conversa no Firestore
       try {
-        const lastSummary = hasAudio 
-          ? '🎤 Mensagem de voz' 
-          : hasAttachment 
-            ? (attachment?.fileType === 'image' ? '📷 Fotografia' : '📎 Ficheiro') 
-            : messageText;
-
         await updateDoc(doc(db, 'conversations', conversationId), {
-          lastMessage: lastSummary,
-          lastMessageTime: formattedTime,
-          updatedAt: nowIso,
+          lastMessage: summary,
+          lastMessageTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          updatedAt: new Date().toISOString(),
         });
       } catch (updErr) {
         console.warn('Erro ao atualizar resumo da conversa:', updErr);
       }
     } catch (err: any) {
       console.error('Erro ao enviar mensagem:', err);
-      const msg = err?.message || 'Erro ao enviar mensagem. Tente novamente.';
-      showToast(msg);
+      showToast(err?.message || 'Erro ao enviar mensagem. Tente novamente.');
       throw err;
     }
   };
