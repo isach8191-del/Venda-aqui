@@ -22,6 +22,11 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function notBlocked() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false);
+    }
+
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
@@ -128,12 +133,12 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource == null || isAdmin() || request.auth.uid in existing().participantIds
       );
-      allow create: if isSignedIn() && (
-        request.auth.uid in incoming().participantIds
-      ) && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked);
+      allow create: if isSignedIn() &&
+        request.auth.uid in incoming().participantIds &&
+        notBlocked();
       allow update: if isSignedIn() && (
         isAdmin() || request.auth.uid in existing().participantIds
-      ) && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked);
+      ) && notBlocked();
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid in existing().participantIds);
 
       match /messages/{messageId} {
@@ -142,8 +147,9 @@ service cloud.firestore {
           !exists(/databases/$(database)/documents/conversations/$(conversationId)) ||
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
         );
-        allow create: if isSignedIn() && incoming().senderId == request.auth.uid &&
-          (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked);
+        allow create: if isSignedIn() &&
+          incoming().senderId == request.auth.uid &&
+          notBlocked();
         allow update, delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
       }
     }
