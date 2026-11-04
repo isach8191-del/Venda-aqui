@@ -31,13 +31,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
 
-      // Only owner can create their own profile, cannot grant themselves admin or set blocked (unless authorized admin)
       allow create: if isOwner(userId) && 
         (!('role' in incoming()) || incoming().role != 'admin' || isAdmin()) &&
         (!('isAdmin' in incoming()) || incoming().isAdmin == false || isAdmin()) &&
         (!('isBlocked' in incoming()) || incoming().isBlocked == false);
 
-      // Only owner or admin can update; owner cannot change role, admin, or isBlocked fields to unauthorized values
       allow update: if isSignedIn() && (
         isAdmin() ||
         (isOwner(userId) && (
@@ -48,14 +46,11 @@ service cloud.firestore {
             incoming().isBlocked == existing().isBlocked
           )
         )) ||
-        // Allow rating and reviewCount aggregation
         incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewCount', 'totalSales'])
       );
 
-      // Only admin or owner can delete profile
       allow delete: if isAdmin() || isOwner(userId);
 
-      // Subcollection: Reviews left by buyers
       match /reviews/{reviewId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().buyerId == request.auth.uid;
@@ -67,23 +62,19 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if isSignedIn();
 
-      // Only authenticated users can create their own posts, must have price > 0
       allow create: if isSignedIn() && 
         incoming().sellerId == request.auth.uid &&
         incoming().price is number && 
         incoming().price > 0;
 
-      // Seller or Admin can update post; or users can toggle likes/comments
       allow update: if isSignedIn() && (
         isAdmin() ||
         existing().sellerId == request.auth.uid ||
         incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy', 'commentsCount', 'status', 'buyerId'])
       );
 
-      // Only seller or Admin can delete post
       allow delete: if isAdmin() || (isSignedIn() && existing().sellerId == request.auth.uid);
 
-      // Comments subcollection
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().authorId == request.auth.uid;
@@ -95,26 +86,22 @@ service cloud.firestore {
       }
     }
 
-    // Shops and Businesses (lojas, mercearias, barracas, prestadores de serviços)
+    // Shops and Businesses
     match /shops/{shopId} {
       allow read: if isSignedIn();
 
-      // Only authenticated users can register their shop, verified cannot be set to true by user
       allow create: if isSignedIn() && 
         incoming().ownerId == request.auth.uid &&
         (!('verified' in incoming()) || incoming().verified == false);
 
-      // Owner or Admin can update shop; normal user cannot change verified or ownerId
       allow update: if isSignedIn() && (
         isAdmin() ||
         (existing().ownerId == request.auth.uid && !incoming().diff(existing()).affectedKeys().hasAny(['verified', 'ownerId'])) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewCount'])
       );
 
-      // Only Owner or Admin can delete shop
       allow delete: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid);
 
-      // Shop products catalog
       match /products/{productId} {
         allow read: if isSignedIn();
         allow create, update, delete: if isSignedIn() && (
@@ -123,7 +110,6 @@ service cloud.firestore {
         );
       }
 
-      // Shop reviews
       match /reviews/{reviewId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().userId == request.auth.uid;
@@ -131,18 +117,16 @@ service cloud.firestore {
       }
     }
 
-    // Reports collection (denúncias)
+    // Reports
     match /reports/{reportId} {
-      // Any authenticated user can submit a report
       allow create: if isSignedIn() && incoming().reporterId == request.auth.uid;
-      // Only administrator can read, resolve or delete reports
       allow read, update, delete: if isAdmin();
     }
 
-    // Conversations (somente pelos participantes com sessão iniciada)
+    // Conversations (only participants)
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && (
-        isAdmin() || request.auth.uid in existing().participantIds
+        resource == null || isAdmin() || request.auth.uid in existing().participantIds
       );
       allow create: if isSignedIn() && (
         request.auth.uid in incoming().participantIds
@@ -152,9 +136,12 @@ service cloud.firestore {
       ) && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked);
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid in existing().participantIds);
 
-      // Messages in conversation
       match /messages/{messageId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() && (
+          isAdmin() ||
+          !exists(/databases/$(database)/documents/conversations/$(conversationId)) ||
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+        );
         allow create: if isSignedIn() && incoming().senderId == request.auth.uid &&
           (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked);
         allow update, delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
