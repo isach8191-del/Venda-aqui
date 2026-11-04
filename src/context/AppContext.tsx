@@ -1457,9 +1457,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    // Fecha perfis ou páginas de lojas para abrir diretamente a conversa em ecrã inteiro
-    closeUserProfile();
-    closeShopDetail();
+        // Limpa perfil e loja abertos sem passar por outras abas, e vai direto às mensagens
+    setSelectedProfileUser(null);
+    setSelectedShop(null);
+    setActiveTab('messages');
 
     // ID determinístico para conversa direta entre os dois utilizadores
     const convId = `conv_${[user.id, targetUser.id].sort().join('_')}`;
