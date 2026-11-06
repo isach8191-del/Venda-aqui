@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const en: TranslationSchema = {
   langCode: 'en',
   seo: {
-    title: 'VENDA AQUI - Social Marketplace for New & Used Goods',
+    title: 'Hic Venditur - Social Marketplace for New & Used Goods',
     description: 'Buy and sell new and pre-owned items globally with a modern social feed, real-time seller chat, and instant notifications.',
   },
   common: {
     appName: 'Hic Venditur',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Loading...',
     save: 'Save',
     cancel: 'Cancel',
@@ -78,7 +78,7 @@ export const en: TranslationSchema = {
     dontHaveAccount: "Don't have an account? Sign Up",
     loginTab: 'Sign In',
     registerTab: 'Sign Up',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Language',
     errors: {
       requiredFields: 'Please fill in all required fields.',
@@ -247,7 +247,7 @@ export const en: TranslationSchema = {
     accountTitle: 'Account & Security',
     adminPanel: 'Admin Dashboard',
     terms: 'Terms & Conditions',
-    about: 'About VENDA AQUI & Contact',
+    about: 'About Hic Venditur & Contact',
     logout: 'Sign Out',
     logoutConfirm: 'Are you sure you want to sign out?',
   },
@@ -269,9 +269,9 @@ export const en: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Terms & Conditions',
-    aboutTitle: 'About VENDA AQUI & Contact',
-    termsContent: 'VENDA AQUI is a direct peer-to-peer social commerce platform connecting buyers and sellers worldwide. We charge zero commission fees. Posting illegal goods, weapons, prohibited substances, or engaging in scam attempts is strictly prohibited and results in immediate ban.',
-    aboutContent: 'Created and administered by Ismael Machava. VENDA AQUI was designed to make trading simple, fast, and transparent.',
+    aboutTitle: 'About Hic Venditur & Contact',
+    termsContent: 'Hic Venditur is a direct peer-to-peer social commerce platform connecting buyers and sellers worldwide. We charge zero commission fees. Posting illegal goods, weapons, prohibited substances, or engaging in scam attempts is strictly prohibited and results in immediate ban.',
+    aboutContent: 'Created and administered by Ismael Machava. Hic Venditur was designed to make trading simple, fast, and transparent.',
     contactUs: 'Direct Administrator Contact: isach8191@gmail.com',
   },
 };

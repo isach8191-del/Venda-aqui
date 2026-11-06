@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const ptPT: TranslationSchema = {
   langCode: 'pt-PT',
   seo: {
-    title: 'VENDA AQUI - Rede Social de Compra e Venda',
+    title: 'Hic Venditur - Rede Social de Compra e Venda',
     description: 'Compre e venda produtos novos ou usados com rapidez em Portugal e no mundo com feed social, mensagens diretas e notificações em tempo real.',
   },
   common: {
     appName: 'Hic Venditur',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'A carregar...',
     save: 'Guardar',
     cancel: 'Cancelar',
@@ -78,7 +78,7 @@ export const ptPT: TranslationSchema = {
     dontHaveAccount: 'Não tem conta? Registar-se',
     loginTab: 'Entrar',
     registerTab: 'Registar',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Idioma / Language',
     errors: {
       requiredFields: 'Preencha todos os campos obrigatórios.',
@@ -247,7 +247,7 @@ export const ptPT: TranslationSchema = {
     accountTitle: 'Conta e Segurança',
     adminPanel: 'Painel de Administração',
     terms: 'Termos e Condições',
-    about: 'Sobre o VENDA AQUI e Contacto',
+    about: 'Sobre o Hic Venditur e Contacto',
     logout: 'Terminar Sessão',
     logoutConfirm: 'Tem a certeza de que deseja terminar sessão?',
   },
@@ -269,9 +269,9 @@ export const ptPT: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Termos e Condições de Utilização',
-    aboutTitle: 'Sobre o VENDA AQUI & Contacto',
-    termsContent: 'O VENDA AQUI é uma plataforma de rede social para negociação e vendas diretas entre compradores e vendedores. Não cobramos comissões sobre as transações. É expressamente proibido anunciar artigos ilegais, armas, substâncias proibidas ou cometer qualquer tentativa de fraude.',
-    aboutContent: 'Criado e administrado por Ismael Machava. O VENDA AQUI foi desenhado para proporcionar um comércio simples, rápido e transparente.',
+    aboutTitle: 'Sobre o Hic Venditur & Contacto',
+    termsContent: 'O Hic Venditur é uma plataforma de rede social para negociação e vendas diretas entre compradores e vendedores. Não cobramos comissões sobre as transações. É expressamente proibido anunciar artigos ilegais, armas, substâncias proibidas ou cometer qualquer tentativa de fraude.',
+    aboutContent: 'Criado e administrado por Ismael Machava. O Hic Venditur foi desenhado para proporcionar um comércio simples, rápido e transparente.',
     contactUs: 'Contacto direto do administrador: isach8191@gmail.com',
   },
 };

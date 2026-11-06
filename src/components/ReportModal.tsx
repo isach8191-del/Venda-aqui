@@ -42,7 +42,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     {
       id: 'outro',
       label: 'Outro Motivo',
-      desc: 'Outra violação das regras do VENDA AQUI.',
+      desc: 'Outra violação das regras do Hic Venditur.',
     },
   ];
 

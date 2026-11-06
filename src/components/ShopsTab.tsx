@@ -324,7 +324,7 @@ export const ShopsTab: React.FC = () => {
                     </button>
 
                     <a
-                      href={`https://wa.me/${(shop.whatsapp || shop.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Olá ${shop.name}! Vi a vossa loja no VENDA AQUI.`)}`}
+                      href={`https://wa.me/${(shop.whatsapp || shop.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Olá ${shop.name}! Vi a vossa loja no Hic Venditur.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

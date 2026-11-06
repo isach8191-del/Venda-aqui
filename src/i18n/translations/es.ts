@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const es: TranslationSchema = {
   langCode: 'es',
   seo: {
-    title: 'VENDA AQUI - Red Social de Compra y Venta de Nuevos y Usados',
+    title: 'Hic Venditur - Red Social de Compra y Venta de Nuevos y Usados',
     description: 'Compra y vende artículos nuevos y de segunda mano con feed social, chat directo con vendedores y notificaciones instantáneas.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Cargando...',
     save: 'Guardar',
     cancel: 'Cancelar',
@@ -78,7 +78,7 @@ export const es: TranslationSchema = {
     dontHaveAccount: '¿No tienes cuenta? Regístrate',
     loginTab: 'Iniciar Sesión',
     registerTab: 'Registrarse',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Idioma / Language',
     errors: {
       requiredFields: 'Por favor completa todos los campos obligatorios.',
@@ -247,7 +247,7 @@ export const es: TranslationSchema = {
     accountTitle: 'Cuenta y Seguridad',
     adminPanel: 'Panel de Administración',
     terms: 'Términos y Condiciones',
-    about: 'Acerca de VENDA AQUI y Contacto',
+    about: 'Acerca de Hic Venditur y Contacto',
     logout: 'Cerrar Sesión',
     logoutConfirm: '¿Seguro que deseas cerrar sesión?',
   },
@@ -269,8 +269,8 @@ export const es: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Términos y Condiciones de Uso',
-    aboutTitle: 'Acerca de VENDA AQUI & Contacto',
-    termsContent: 'VENDA AQUI es una red social de comercio directo entre compradores y vendedores de todo el mundo. No cobramos comisiones. Queda totalmente prohibido publicar artículos ilícitos, armas, sustancias prohibidas o cometer fraudes.',
+    aboutTitle: 'Acerca de Hic Venditur & Contacto',
+    termsContent: 'Hic Venditur es una red social de comercio directo entre compradores y vendedores de todo el mundo. No cobramos comisiones. Queda totalmente prohibido publicar artículos ilícitos, armas, sustancias prohibidas o cometer fraudes.',
     aboutContent: 'Creado y administrado por Ismael Machava. Diseñado para un comercio directo, ágil y transparente.',
     contactUs: 'Contacto del administrador: isach8191@gmail.com',
   },

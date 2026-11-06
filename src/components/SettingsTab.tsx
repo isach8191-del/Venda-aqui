@@ -341,7 +341,7 @@ export const SettingsTab: React.FC = () => {
         </section>
       )}
 
-      {/* 6. Termos & Sobre o VENDA AQUI */}
+      {/* 6. Termos & Sobre o Hic Venditur */}
       <section className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-none p-3.5 shadow-none space-y-2">
         <h2 className="text-xs font-bold uppercase tracking-wider text-black dark:text-white mb-1">
           Informações & Legal

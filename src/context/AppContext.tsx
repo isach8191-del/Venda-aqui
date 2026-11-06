@@ -539,7 +539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isAdmin: adminStatus,
               isBlocked: !!data.isBlocked,
               blockedUserIds: Array.isArray(data.blockedUserIds) ? data.blockedUserIds : [],
-              bio: data.bio ?? 'Vendedor no VENDA AQUI.',
+              bio: data.bio ?? 'Vendedor no Hic Venditur.',
               location: data.location ?? 'Portugal / Brasil',
               country: data.country ?? preferredCountry ?? 'MZ',
               phone: data.phone ?? '',
@@ -574,7 +574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isAdmin: adminStatus,
               isBlocked: false,
               blockedUserIds: [],
-              bio: 'Vendedor no VENDA AQUI.',
+              bio: 'Vendedor no Hic Venditur.',
               location: 'Moçambique / Portugal',
               country: preferredCountry || 'MZ',
               phone: '',
@@ -1041,7 +1041,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAdmin: adminStatus,
         isBlocked: false,
         blockedUserIds: [],
-        bio: 'Vendedor no VENDA AQUI.',
+        bio: 'Vendedor no Hic Venditur.',
         location: location.trim() || 'Moçambique',
         country: userCountry,
         preferredLanguage: language,
@@ -1323,7 +1323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
       );
       setIsCreatePostModalOpen(false);
-      showToast('Publicação criada no VENDA AQUI!');
+      showToast('Publicação criada no Hic Venditur!');
       setActiveTab('feed');
     } catch (err: any) {
       console.error('Create post error:', err);
@@ -2026,7 +2026,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'A gravação demorou mais de 20 segundos. Por favor, tente novamente.'
       );
       setIsRegisterShopModalOpen(false);
-      showToast('Loja / Negócio registado com sucesso no VENDA AQUI!');
+      showToast('Loja / Negócio registado com sucesso no Hic Venditur!');
       openShopDetail({ id: docRef.id, ...newShopData });
     } catch (err: any) {
       console.error('Register shop error:', err);

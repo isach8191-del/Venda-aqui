@@ -67,7 +67,7 @@ export const ShopDetailView: React.FC = () => {
   const cleanWhatsApp = (selectedShop.whatsapp || selectedShop.phone).replace(/[^0-9]/g, '');
 
   const handleOpenWhatsApp = (customMessage?: string) => {
-    const text = customMessage || `Olá ${selectedShop.name}! Vi a vossa loja no VENDA AQUI e gostaria de mais informações.`;
+    const text = customMessage || `Olá ${selectedShop.name}! Vi a vossa loja no Hic Venditur e gostaria de mais informações.`;
     const url = `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -79,8 +79,8 @@ export const ShopDetailView: React.FC = () => {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: `${selectedShop.name} no VENDA AQUI`,
-        text: `Confira a loja ${selectedShop.name} no VENDA AQUI!`,
+        title: `${selectedShop.name} no Hic Venditur`,
+        text: `Confira a loja ${selectedShop.name} no Hic Venditur!`,
         url: window.location.href,
       }).catch(() => {});
     } else {
@@ -438,7 +438,7 @@ export const ShopDetailView: React.FC = () => {
                         {/* Customer order button */}
                         {prod.status === 'disponivel' ? (
                           <button
-                            onClick={() => handleOpenWhatsApp(`Olá ${selectedShop.name}! Vi no VENDA AQUI o artigo "${prod.title}" por R$ ${prod.price.toLocaleString('pt-BR')}. Ainda está disponível?`)}
+                            onClick={() => handleOpenWhatsApp(`Olá ${selectedShop.name}! Vi no Hic Venditur o artigo "${prod.title}" por R$ ${prod.price.toLocaleString('pt-BR')}. Ainda está disponível?`)}
                             className="w-full py-1 px-2 rounded-sm bg-neutral-900 hover:bg-black dark:bg-neutral-100 dark:hover:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1"
                           >
                             <MessageCircle className="w-3 h-3" />

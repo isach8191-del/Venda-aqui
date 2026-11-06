@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const de: TranslationSchema = {
   langCode: 'de',
   seo: {
-    title: 'VENDA AQUI - Sozialer Marktplatz für Neu- und Gebrauchtwaren',
+    title: 'Hic Venditur - Sozialer Marktplatz für Neu- und Gebrauchtwaren',
     description: 'Kaufen und verkaufen Sie neue und gebrauchte Produkte weltweit über einen modernen Social Feed, Direktnachrichten und Echtzeit-Benachrichtigungen.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Wird geladen...',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -78,7 +78,7 @@ export const de: TranslationSchema = {
     dontHaveAccount: 'Noch kein Konto? Jetzt registrieren',
     loginTab: 'Anmelden',
     registerTab: 'Registrieren',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Sprache / Language',
     errors: {
       requiredFields: 'Bitte füllen Sie alle erforderlichen Felder aus.',
@@ -247,7 +247,7 @@ export const de: TranslationSchema = {
     accountTitle: 'Konto und Sicherheit',
     adminPanel: 'Admin-Dashboard',
     terms: 'Nutzungsbedingungen',
-    about: 'Über VENDA AQUI und Kontakt',
+    about: 'Über Hic Venditur und Kontakt',
     logout: 'Abmelden',
     logoutConfirm: 'Möchten Sie sich wirklich abmelden?',
   },
@@ -269,8 +269,8 @@ export const de: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Allgemeine Nutzungsbedingungen',
-    aboutTitle: 'Über VENDA AQUI & Kontakt',
-    termsContent: 'VENDA AQUI ist eine direkte Social-Commerce-Plattform ohne Transaktionsgebühren. Das Einstellen illegaler Waren, Waffen, verbotener Substanzen sowie Betrugsversuche sind strengstens untersagt und führen zum sofortigen Ausschluss.',
+    aboutTitle: 'Über Hic Venditur & Kontakt',
+    termsContent: 'Hic Venditur ist eine direkte Social-Commerce-Plattform ohne Transaktionsgebühren. Das Einstellen illegaler Waren, Waffen, verbotener Substanzen sowie Betrugsversuche sind strengstens untersagt und führen zum sofortigen Ausschluss.',
     aboutContent: 'Gegründet und betreut von Ismael Machava. Entwickelt für einfachen, schnellen und transparenten Handel.',
     contactUs: 'Direkter Kontakt zum Administrator: isach8191@gmail.com',
   },

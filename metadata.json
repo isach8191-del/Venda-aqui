@@ -1,6 +1,6 @@
 {
-  "name": "VENDA AQUI - Rede Social de Vendas",
-  "description": "Rede social de compra e venda de produtos novos e usados em estilo minimalista preto e branco com feed de publicações, chat direto e notificações.",
+  "name": "Hic Venditur",
+  "description": "Mercado social para comprar e vender produtos novos e usados, com chat direto e lojas.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

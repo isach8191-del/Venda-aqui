@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const ar: TranslationSchema = {
   langCode: 'ar',
   seo: {
-    title: 'VENDA AQUI - شبكة اجتماعية لبيع وشراء المنتجات الجديدة والمستعملة',
+    title: 'Hic Venditur - شبكة اجتماعية لبيع وشراء المنتجات الجديدة والمستعملة',
     description: 'بيع واشتر المنتجات الجديدة والمستعملة بكل سهولة حول العالم عبر منصة تواصل اجتماعي مع دردشة مباشرة وإشعارات فورية.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'جارٍ التحميل...',
     save: 'حفظ',
     cancel: 'إلغاء',
@@ -78,7 +78,7 @@ export const ar: TranslationSchema = {
     dontHaveAccount: 'ليس لديك حساب؟ إنشاء حساب جديد',
     loginTab: 'دخول',
     registerTab: 'تسجيل',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'اللغة / Language',
     errors: {
       requiredFields: 'يرجى ملء جميع الحقول المطلوبة.',
@@ -247,7 +247,7 @@ export const ar: TranslationSchema = {
     accountTitle: 'الحساب والأمان',
     adminPanel: 'لوحة تحكم المسؤول',
     terms: 'الشروط والأحكام',
-    about: 'عن VENDA AQUI والتواصل',
+    about: 'عن Hic Venditur والتواصل',
     logout: 'تسجيل الخروج',
     logoutConfirm: 'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
   },
@@ -269,8 +269,8 @@ export const ar: TranslationSchema = {
   },
   terms: {
     termsTitle: 'الشروط والأحكام العامة',
-    aboutTitle: 'عن VENDA AQUI ومعلومات الاتصال',
-    termsContent: 'منصة VENDA AQUI هي شبكة تواصل اجتماعي مخصصة للتجارة المباشرة بين البائعين والمشترين دون عمولات وسيطة. يُحظر تماماً نشر أي منتجات غير قانونية أو أسلحة أو مواد ممنوعة أو محاولات احتيال.',
+    aboutTitle: 'عن Hic Venditur ومعلومات الاتصال',
+    termsContent: 'منصة Hic Venditur هي شبكة تواصل اجتماعي مخصصة للتجارة المباشرة بين البائعين والمشترين دون عمولات وسيطة. يُحظر تماماً نشر أي منتجات غير قانونية أو أسلحة أو مواد ممنوعة أو محاولات احتيال.',
     aboutContent: 'تم التطوير والإدارة بواسطة إسماعيل ماتشافا. مصممة لتجارة بسيطة وسريعة وآمنة.',
     contactUs: 'تواصل مباشر مع المسؤول: isach8191@gmail.com',
   },

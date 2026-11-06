@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const fr: TranslationSchema = {
   langCode: 'fr',
   seo: {
-    title: 'VENDA AQUI - Réseau Social de Vente de Neuf et d\'Occasion',
+    title: 'Hic Venditur - Réseau Social de Vente de Neuf et d\'Occasion',
     description: 'Achetez et vendez des produits neufs et d\'occasion facilement dans le monde entier avec un fil social, une messagerie directe et des notifications.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Chargement...',
     save: 'Enregistrer',
     cancel: 'Annuler',
@@ -78,7 +78,7 @@ export const fr: TranslationSchema = {
     dontHaveAccount: 'Pas encore de compte ? S\'inscrire',
     loginTab: 'Connexion',
     registerTab: 'Inscription',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Langue / Language',
     errors: {
       requiredFields: 'Veuillez remplir tous les champs obligatoires.',
@@ -247,7 +247,7 @@ export const fr: TranslationSchema = {
     accountTitle: 'Compte et Sécurité',
     adminPanel: 'Panneau d\'Administration',
     terms: 'Conditions d\'utilisation',
-    about: 'À propos de VENDA AQUI et Contact',
+    about: 'À propos de Hic Venditur et Contact',
     logout: 'Déconnexion',
     logoutConfirm: 'Voulez-vous vraiment vous déconnecter ?',
   },
@@ -269,8 +269,8 @@ export const fr: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Conditions Générales d\'Utilisation',
-    aboutTitle: 'À propos de VENDA AQUI & Contact',
-    termsContent: 'VENDA AQUI est une plateforme sociale d\'achat et vente directe sans commissions entre acheteurs et vendeurs. Tout produit illégal, arme, substance interdite ou tentative d\'escroquerie est strictement banni.',
+    aboutTitle: 'À propos de Hic Venditur & Contact',
+    termsContent: 'Hic Venditur est une plateforme sociale d\'achat et vente directe sans commissions entre acheteurs et vendeurs. Tout produit illégal, arme, substance interdite ou tentative d\'escroquerie est strictement banni.',
     aboutContent: 'Créé et administré par Ismael Machava. Conçu pour faciliter un commerce simple, direct et transparent.',
     contactUs: 'Contact direct de l\'administrateur : isach8191@gmail.com',
   },

@@ -22,7 +22,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({ mode = 'terms', onClose 
               <FileText className="w-4 h-4 text-black dark:text-white" />
             )}
             <h3 className="font-bold text-xs sm:text-sm text-black dark:text-white uppercase tracking-tight">
-              {mode === 'about' ? 'Sobre o VENDA AQUI & Contacto' : 'Termos de Utilização & Privacidade'}
+              {mode === 'about' ? 'Sobre o Hic Venditur & Contacto' : 'Termos de Utilização & Privacidade'}
             </h3>
           </div>
           <button
@@ -42,7 +42,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({ mode = 'terms', onClose 
               <span>1. Sobre a Plataforma e Administração</span>
             </h4>
             <p>
-              O <strong>VENDA AQUI</strong> é uma rede social dedicada à compra e venda de produtos novos e usados. A plataforma foi criada e é administrada com o compromisso de oferecer um ambiente seguro, transparente e livre de golpes e spam.
+              O <strong>Hic Venditur</strong> é uma rede social dedicada à compra e venda de produtos novos e usados. A plataforma foi criada e é administrada com o compromisso de oferecer um ambiente seguro, transparente e livre de golpes e spam.
             </p>
             <p>
               <strong>Administrador Único:</strong> isach8191@gmail.com

@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const ru: TranslationSchema = {
   langCode: 'ru',
   seo: {
-    title: 'VENDA AQUI - Социальная торговая площадка новых и б/у товаров',
+    title: 'Hic Venditur - Социальная торговая площадка новых и б/у товаров',
     description: 'Покупайте и продавайте новые и подержанные товары по всему миру в удобном формате социальной сети с прямыми чатами и уведомлениями.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Загрузка...',
     save: 'Сохранить',
     cancel: 'Отмена',
@@ -78,7 +78,7 @@ export const ru: TranslationSchema = {
     dontHaveAccount: 'Нет аккаунта? Зарегистрироваться',
     loginTab: 'Вход',
     registerTab: 'Регистрация',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Язык / Language',
     errors: {
       requiredFields: 'Пожалуйста, заполните все обязательные поля.',
@@ -247,7 +247,7 @@ export const ru: TranslationSchema = {
     accountTitle: 'Учетная запись и безопасность',
     adminPanel: 'Панель администратора',
     terms: 'Условия использования',
-    about: 'О VENDA AQUI и контакты',
+    about: 'О Hic Venditur и контакты',
     logout: 'Выйти из аккаунта',
     logoutConfirm: 'Вы уверены, что хотите выйти из аккаунта?',
   },
@@ -269,8 +269,8 @@ export const ru: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Условия и правила использования',
-    aboutTitle: 'О VENDA AQUI и контакты',
-    termsContent: 'VENDA AQUI — это социальная платформа для прямых сделок между покупателями и продавцами без комиссий. Категорически запрещено размещение нелегальных товаров, оружия, запрещенных веществ и любые попытки мошенничества.',
+    aboutTitle: 'О Hic Venditur и контакты',
+    termsContent: 'Hic Venditur — это социальная платформа для прямых сделок между покупателями и продавцами без комиссий. Категорически запрещено размещение нелегальных товаров, оружия, запрещенных веществ и любые попытки мошенничества.',
     aboutContent: 'Создатель и единственный администратор: Ismael Machava. Создано для прозрачной, быстрой и доступной торговли.',
     contactUs: 'Прямой контакт администратора: isach8191@gmail.com',
   },

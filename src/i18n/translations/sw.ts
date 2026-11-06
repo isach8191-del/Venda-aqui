@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const sw: TranslationSchema = {
   langCode: 'sw',
   seo: {
-    title: 'VENDA AQUI - Mtandao wa Kijamii wa Kununua na Kuuza Vitu Vipya na Vilivyotumika',
+    title: 'Hic Venditur - Mtandao wa Kijamii wa Kununua na Kuuza Vitu Vipya na Vilivyotumika',
     description: 'Nunua na uuze bidhaa mpya na zilizotumika kwa urahisi duniani kote ukitumia mtandao wa kijamii, gumzo la moja kwa moja na arifa.',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'Inapakia...',
     save: 'Hifadhi',
     cancel: 'Ghairi',
@@ -78,7 +78,7 @@ export const sw: TranslationSchema = {
     dontHaveAccount: 'Huna akaunti? Jisajili sasa',
     loginTab: 'Ingia',
     registerTab: 'Jisajili',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'Lugha / Language',
     errors: {
       requiredFields: 'Tafadhali jaza sehemu zote zinazohitajika.',
@@ -247,7 +247,7 @@ export const sw: TranslationSchema = {
     accountTitle: 'Akaunti na Usalama',
     adminPanel: 'Dashibodi ya Msimamizi',
     terms: 'Vigezo na Masharti',
-    about: 'Kuhusu VENDA AQUI & Mawasiliano',
+    about: 'Kuhusu Hic Venditur & Mawasiliano',
     logout: 'Ondoka',
     logoutConfirm: 'Una uhakika unataka kuondoka kwenye akaunti?',
   },
@@ -269,8 +269,8 @@ export const sw: TranslationSchema = {
   },
   terms: {
     termsTitle: 'Vigezo na Masharti ya Matumizi',
-    aboutTitle: 'Kuhusu VENDA AQUI & Mawasiliano',
-    termsContent: 'VENDA AQUI ni jukwaa la kijamii la biashara ya moja kwa moja kati ya wauzaji na wanunuzi bila malipo ya asilimia. Hairuhusiwi kabisa kutangaza vitu visivyo halali, silaha, vitu vilivyopigwa marufuku au kufanya utapeli wa aina yoyote.',
+    aboutTitle: 'Kuhusu Hic Venditur & Mawasiliano',
+    termsContent: 'Hic Venditur ni jukwaa la kijamii la biashara ya moja kwa moja kati ya wauzaji na wanunuzi bila malipo ya asilimia. Hairuhusiwi kabisa kutangaza vitu visivyo halali, silaha, vitu vilivyopigwa marufuku au kufanya utapeli wa aina yoyote.',
     aboutContent: 'Imeundwa na kusimamiwa na Ismael Machava. Imesanifiwa kufanya biashara iwe rahisi, ya haraka na ya uwazi.',
     contactUs: 'Mawasiliano ya moja kwa moja ya Msimamizi: isach8191@gmail.com',
   },

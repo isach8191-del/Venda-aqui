@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const hi: TranslationSchema = {
   langCode: 'hi',
   seo: {
-    title: 'VENDA AQUI - नए और पुराने सामान की खरीद-बिक्री का सोशल मार्केटप्लेस',
+    title: 'Hic Venditur - नए और पुराने सामान की खरीद-बिक्री का सोशल मार्केटप्लेस',
     description: 'सोशल फीड, सीधे सेलर चैट और रियल-टाइम नोटिफिकेशन के साथ नए और इस्तेमाल किए गए सामान आसानी से खरीदें और बेचें।',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: 'लोड हो रहा है...',
     save: 'सहेजें',
     cancel: 'रद्द करें',
@@ -78,7 +78,7 @@ export const hi: TranslationSchema = {
     dontHaveAccount: 'खाता नहीं है? साइन अप करें',
     loginTab: 'लॉग इन',
     registerTab: 'रजिस्टर',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: 'भाषा / Language',
     errors: {
       requiredFields: 'कृपया सभी आवश्यक फ़ील्ड भरें।',
@@ -247,7 +247,7 @@ export const hi: TranslationSchema = {
     accountTitle: 'खाता और सुरक्षा',
     adminPanel: 'व्यवस्थापक पैनल',
     terms: 'नियम और शर्तें',
-    about: 'VENDA AQUI के बारे में और संपर्क',
+    about: 'Hic Venditur के बारे में और संपर्क',
     logout: 'लॉग आउट',
     logoutConfirm: 'क्या आप वाकई लॉग आउट करना चाहते हैं?',
   },
@@ -269,8 +269,8 @@ export const hi: TranslationSchema = {
   },
   terms: {
     termsTitle: 'उपयोग के नियम और शर्तें',
-    aboutTitle: 'VENDA AQUI के बारे में & संपर्क',
-    termsContent: 'VENDA AQUI खरीदारों और विक्रेताओं को सीधे जोड़ने वाला सोशल कॉमर्स प्लेटफॉर्म है। हम कोई कमीशन नहीं लेते। अवैध सामान, हथियार या धोखाधड़ी का कोई भी प्रयास सख्त वर्जित है।',
+    aboutTitle: 'Hic Venditur के बारे में & संपर्क',
+    termsContent: 'Hic Venditur खरीदारों और विक्रेताओं को सीधे जोड़ने वाला सोशल कॉमर्स प्लेटफॉर्म है। हम कोई कमीशन नहीं लेते। अवैध सामान, हथियार या धोखाधड़ी का कोई भी प्रयास सख्त वर्जित है।',
     aboutContent: 'निर्माता और प्रशासक: Ismael Machava। सरल, तेज़ और पारदर्शी व्यापार के लिए डिज़ाइन किया गया।',
     contactUs: 'व्यवस्थापक से सीधा संपर्क: isach8191@gmail.com',
   },

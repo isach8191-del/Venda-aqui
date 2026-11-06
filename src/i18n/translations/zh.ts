@@ -3,12 +3,12 @@ import { TranslationSchema } from '../types';
 export const zh: TranslationSchema = {
   langCode: 'zh',
   seo: {
-    title: 'VENDA AQUI - 全球新品与二手好物社交交易平台',
+    title: 'Hic Venditur - 全球新品与二手好物社交交易平台',
     description: '通过动态流、即时通讯与实时通知，在全球轻松买卖全新及二手优质好物。',
   },
   common: {
-    appName: 'VENDA AQUI',
-    appSlogan: 'COMPRA AQUI E VENDA AQUI',
+    appName: 'Hic Venditur',
+    appSlogan: 'COMPRA AQUI E Hic Venditur',
     loading: '加载中...',
     save: '保存',
     cancel: '取消',
@@ -78,7 +78,7 @@ export const zh: TranslationSchema = {
     dontHaveAccount: '还没有账号？立即注册',
     loginTab: '登录',
     registerTab: '注册',
-    footerSlogan: 'COMPRA AQUI E VENDA AQUI',
+    footerSlogan: 'COMPRA AQUI E Hic Venditur',
     languageSelectorLabel: '语言 / Language',
     errors: {
       requiredFields: '请填写所有必填字段。',
@@ -247,7 +247,7 @@ export const zh: TranslationSchema = {
     accountTitle: '账号与安全',
     adminPanel: '管理员控制台',
     terms: '服务条款与使用协议',
-    about: '关于 VENDA AQUI 及联系方式',
+    about: '关于 Hic Venditur 及联系方式',
     logout: '退出登录',
     logoutConfirm: '确定要退出当前登录的账号吗？',
   },
@@ -269,8 +269,8 @@ export const zh: TranslationSchema = {
   },
   terms: {
     termsTitle: '服务协议与使用规范',
-    aboutTitle: '关于 VENDA AQUI 及联系方式',
-    termsContent: 'VENDA AQUI 致力于为全球买家与卖家搭建直接无中介抽成的买卖交流网络。平台坚决抵制任何违法乱纪行为，严禁发布违禁品、危险品及一切欺诈行为，一经发现立即永久封禁。',
+    aboutTitle: '关于 Hic Venditur 及联系方式',
+    termsContent: 'Hic Venditur 致力于为全球买家与卖家搭建直接无中介抽成的买卖交流网络。平台坚决抵制任何违法乱纪行为，严禁发布违禁品、危险品及一切欺诈行为，一经发现立即永久封禁。',
     aboutContent: '平台创始人兼总管理员：Ismael Machava。打造极简、快速、透明的买卖新体验。',
     contactUs: '管理员专享直连邮箱：isach8191@gmail.com',
   },
