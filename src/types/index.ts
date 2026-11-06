@@ -29,6 +29,7 @@ export interface User {
   bio?: string;
   location: string;
   country?: string;
+  locationUpdatedAt?: string;
   phone?: string;
   preferredLanguage?: LanguageCode;
   preferredCurrency?: string;

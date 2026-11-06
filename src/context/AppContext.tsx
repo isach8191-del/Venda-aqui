@@ -65,6 +65,20 @@ import {
   POPULAR_COUNTRIES,
   getCountryName
 } from '../i18n';
+import {
+  isAutoLocationEnabled,
+  setAutoLocationEnabled as setAutoLocationService,
+  shouldShowPermissionPrompt,
+  recordPermissionAccepted,
+  recordPermissionDeclined,
+  isCheckDue,
+  getLastDetectedLocationText,
+  setLastDetectedLocationText,
+  detectCurrentLocation,
+  deduceCountryFromTimezoneAndLocale,
+  getCurrencyForCountry,
+  DetectedLocationResult
+} from '../services/locationService';
 
 interface AppContextType {
   user: User | null;
@@ -73,6 +87,20 @@ interface AppContextType {
   setTheme: (theme: ThemeChoice) => void;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
+
+  // Location & Regional Detection
+  isLocationPromptOpen: boolean;
+  setIsLocationPromptOpen: (open: boolean) => void;
+  allowLocationPermission: () => Promise<void>;
+  denyLocationPermission: () => void;
+  countryChangePrompt: { countryCode: string; countryName: string; newCurrency: string; newLocation: string } | null;
+  confirmCountryChange: () => Promise<void>;
+  dismissCountryChange: () => void;
+  autoLocationEnabled: boolean;
+  setAutoLocationEnabledState: (val: boolean) => void;
+  lastDetectedLocationText: string;
+  detectLocationManually: () => Promise<void>;
+  isLocationDetecting: boolean;
   
   // Multilingual & Region State
   language: LanguageCode;
@@ -479,6 +507,174 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3200);
   };
 
+  // Location & Regional Detection State
+  const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+  const [countryChangePrompt, setCountryChangePrompt] = useState<{
+    countryCode: string;
+    countryName: string;
+    newCurrency: string;
+    newLocation: string;
+  } | null>(null);
+  const [autoLocationEnabled, setAutoLocationEnabledStateInternal] = useState<boolean>(() => isAutoLocationEnabled());
+  const [lastDetectedLocationText, setLastDetectedLocationTextState] = useState<string>(() => getLastDetectedLocationText());
+  const [isLocationDetecting, setIsLocationDetecting] = useState(false);
+
+  const setAutoLocationEnabledState = (enabled: boolean) => {
+    setAutoLocationEnabledStateInternal(enabled);
+    setAutoLocationService(enabled);
+    if (enabled) {
+      void runLocationDetection(true);
+    }
+  };
+
+  const runLocationDetection = async (force: boolean = false): Promise<void> => {
+    if (!user) return;
+    if (!force && !isCheckDue()) return;
+
+    setIsLocationDetecting(true);
+    try {
+      const result: DetectedLocationResult = await detectCurrentLocation(language.split('-')[0]);
+      const locationText = `${result.location}, ${getCountryName(result.country, language)}`;
+      setLastDetectedLocationTextState(locationText);
+      setLastDetectedLocationText(locationText);
+
+      const userCountry = (user.country || '').trim().toUpperCase();
+      const detectedCountry = result.country.trim().toUpperCase();
+
+      // If COUNTRY changed and user already had a country set previously
+      if (userCountry && detectedCountry && userCountry !== detectedCountry) {
+        setCountryChangePrompt({
+          countryCode: detectedCountry,
+          countryName: getCountryName(detectedCountry, language),
+          newCurrency: result.currency,
+          newLocation: result.location,
+        });
+      } else {
+        // Country is unchanged or was missing: silently update location / city
+        const cityChanged = Boolean(result.location && result.location !== user.location);
+        const countryNeedsSet = Boolean(!userCountry && detectedCountry);
+
+        if (cityChanged || countryNeedsSet) {
+          const nowIso = new Date().toISOString();
+          const updatePayload: any = {
+            location: result.location || user.location,
+            country: detectedCountry || userCountry || 'MZ',
+            locationUpdatedAt: nowIso,
+          };
+          if (!user.preferredCurrency && result.currency) {
+            updatePayload.preferredCurrency = result.currency;
+            setPreferredCurrencyState(result.currency as CurrencyCode);
+          }
+
+          try {
+            await updateDoc(doc(db, 'users', user.id), updatePayload);
+            setUser((prev) => prev ? {
+              ...prev,
+              location: result.location || prev.location,
+              country: detectedCountry || prev.country,
+              locationUpdatedAt: nowIso,
+              preferredCurrency: updatePayload.preferredCurrency || prev.preferredCurrency,
+            } : null);
+          } catch (err) {
+            console.warn('Could not auto-update city in Firestore:', err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Location detection failed:', err);
+    } finally {
+      setIsLocationDetecting(false);
+    }
+  };
+
+  const allowLocationPermission = async () => {
+    recordPermissionAccepted();
+    setAutoLocationEnabledStateInternal(true);
+    setIsLocationPromptOpen(false);
+    showToast('Localização ativada.');
+    await runLocationDetection(true);
+  };
+
+  const denyLocationPermission = () => {
+    recordPermissionDeclined();
+    setAutoLocationEnabledStateInternal(false);
+    setIsLocationPromptOpen(false);
+    // Fallback: deduce country from timezone and locale if user has no country or default 'MZ'
+    if (user && (!user.country || user.country === 'MZ')) {
+      const fallback = deduceCountryFromTimezoneAndLocale();
+      const fallbackCurr = getCurrencyForCountry(fallback.country);
+      if (fallback.country !== user.country) {
+        const nowIso = new Date().toISOString();
+        void updateDoc(doc(db, 'users', user.id), {
+          location: fallback.location,
+          country: fallback.country,
+          preferredCurrency: fallbackCurr,
+          locationUpdatedAt: nowIso,
+        }).then(() => {
+          setUser((prev) => prev ? {
+            ...prev,
+            location: fallback.location,
+            country: fallback.country,
+            preferredCurrency: fallbackCurr as CurrencyCode,
+            locationUpdatedAt: nowIso,
+          } : null);
+          setPreferredCurrencyState(fallbackCurr as CurrencyCode);
+          setPreferredCountryState(fallback.country);
+        }).catch(() => {});
+      }
+    }
+  };
+
+  const confirmCountryChange = async () => {
+    if (!countryChangePrompt || !user) {
+      setCountryChangePrompt(null);
+      return;
+    }
+    const { countryCode, newCurrency, newLocation, countryName } = countryChangePrompt;
+    setIsLocationDetecting(true);
+    try {
+      const nowIso = new Date().toISOString();
+      await updateDoc(doc(db, 'users', user.id), {
+        location: newLocation,
+        country: countryCode,
+        preferredCurrency: newCurrency,
+        locationUpdatedAt: nowIso,
+      });
+      setUser((prev) => prev ? {
+        ...prev,
+        location: newLocation,
+        country: countryCode,
+        preferredCurrency: newCurrency as CurrencyCode,
+        locationUpdatedAt: nowIso,
+      } : null);
+      setPreferredCountryState(countryCode);
+      setPreferredCurrencyState(newCurrency as CurrencyCode);
+      showToast(`Perfil atualizado para ${countryName} (${newCurrency}).`);
+    } catch (err: any) {
+      console.error('Error confirming country change:', err);
+      showToast('Erro ao atualizar país no perfil.');
+    } finally {
+      setIsLocationDetecting(false);
+      setCountryChangePrompt(null);
+    }
+  };
+
+  const dismissCountryChange = () => {
+    setCountryChangePrompt(null);
+  };
+
+  const detectLocationManually = async () => {
+    setIsLocationDetecting(true);
+    try {
+      await runLocationDetection(true);
+      showToast('Localização atualizada com sucesso!');
+    } catch (err: any) {
+      showToast('Não foi possível detetar a localização.');
+    } finally {
+      setIsLocationDetecting(false);
+    }
+  };
+
   // Sync theme
   useEffect(() => {
     localStorage.setItem('venda_aqui_theme', theme);
@@ -632,6 +828,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.removeEventListener('visibilitychange', handleActivity);
     };
   }, [user?.id]);
+
+  // Deteção de localização: após login e ao voltar ao primeiro plano (máximo 1x por hora)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    if (shouldShowPermissionPrompt()) {
+      const timer = setTimeout(() => {
+        setIsLocationPromptOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (isAutoLocationEnabled()) {
+      if (isCheckDue()) {
+        const timer = setTimeout(() => {
+          void runLocationDetection(false);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleForegroundCheck = () => {
+      if (document.visibilityState === 'visible' && isAutoLocationEnabled() && isCheckDue()) {
+        void runLocationDetection(false);
+      }
+    };
+
+    window.addEventListener('focus', handleForegroundCheck);
+    document.addEventListener('visibilitychange', handleForegroundCheck);
+
+    return () => {
+      window.removeEventListener('focus', handleForegroundCheck);
+      document.removeEventListener('visibilitychange', handleForegroundCheck);
+    };
+  }, [user?.id, language]);
 
   // Listen to Real Posts from Firestore
   useEffect(() => {
@@ -1026,6 +1259,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const adminStatus = email.trim().toLowerCase() === 'isach8191@gmail.com';
       const userCountry = country || preferredCountry || 'MZ';
+      const userCurrency = getCurrencyForCountry(userCountry) || preferredCurrency;
+      const nowIso = new Date().toISOString();
       const newUser: User = {
         id: res.user.uid,
         name: name.trim(),
@@ -1044,14 +1279,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bio: 'Vendedor no Hic Venditur.',
         location: location.trim() || 'Moçambique',
         country: userCountry,
+        locationUpdatedAt: nowIso,
         preferredLanguage: language,
-        preferredCurrency: preferredCurrency,
+        preferredCurrency: userCurrency,
         phone: '',
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
+        lastSeen: nowIso,
       };
 
       await setDoc(doc(db, 'users', res.user.uid), newUser);
       setUser(newUser);
+      setPreferredCountryState(userCountry);
+      setPreferredCurrencyState(userCurrency as CurrencyCode);
       showToast('Conta criada com sucesso!');
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -2361,6 +2600,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteShopProduct,
         addShopReview,
         fetchShopReviews,
+
+        // Location & Regional detection
+        isLocationPromptOpen,
+        setIsLocationPromptOpen,
+        allowLocationPermission,
+        denyLocationPermission,
+        countryChangePrompt,
+        confirmCountryChange,
+        dismissCountryChange,
+        autoLocationEnabled,
+        setAutoLocationEnabledState,
+        lastDetectedLocationText,
+        detectLocationManually,
+        isLocationDetecting,
       }}
     >
       {children}

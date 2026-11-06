@@ -142,6 +142,7 @@ export const SUPPORTED_CURRENCIES: { code: CurrencyCode; symbol: string; name: s
   { code: 'GBP', symbol: '£', name: 'GBP (£ - Libra Esterlina)' },
   { code: 'AOA', symbol: 'Kz', name: 'AOA (Kz - Kwanza Angolano)' },
   { code: 'CVE', symbol: 'CVE', name: 'CVE (Escudo Cabo-verdiano)' },
+  { code: 'TZS', symbol: 'TSh', name: 'TZS (TSh - Xelim Tanzaniano)' },
 ];
 
 export const POPULAR_COUNTRIES: { code: string; name: Record<string, string> }[] = [
@@ -151,6 +152,8 @@ export const POPULAR_COUNTRIES: { code: string; name: Record<string, string> }[]
   { code: 'AO', name: { 'pt-MZ': 'Angola', 'pt-PT': 'Angola', en: 'Angola', es: 'Angola', fr: 'Angola', ar: 'أنغولا', zh: '安哥拉', hi: 'अंगोला', sw: 'Angola', ru: 'Ангола', de: 'Angola' } },
   { code: 'CV', name: { 'pt-MZ': 'Cabo Verde', 'pt-PT': 'Cabo Verde', en: 'Cape Verde', es: 'Cabo Verde', fr: 'Cap-Vert', ar: 'الرأس الأخضر', zh: '佛得角', hi: 'केप वर्डे', sw: 'Rasi ya Verde', ru: 'Кабо-Верде', de: 'Kap Verde' } },
   { code: 'ZA', name: { 'pt-MZ': 'África do Sul', 'pt-PT': 'África do Sul', en: 'South Africa', es: 'Sudáfrica', fr: 'Afrique du Sud', ar: 'جنوب أفريقيا', zh: '南非', hi: 'दक्षिण अफ्रीका', sw: 'Afrika Kusini', ru: 'ЮАР', de: 'Südafrika' } },
+  { code: 'TZ', name: { 'pt-MZ': 'Tanzânia', 'pt-PT': 'Tanzânia', en: 'Tanzania', es: 'Tanzania', fr: 'Tanzanie', ar: 'تنزانيا', zh: '坦桑尼亚', hi: 'तंज़ानिया', sw: 'Tanzania', ru: 'Танзания', de: 'Tansania' } },
+  { code: 'ZW', name: { 'pt-MZ': 'Zimbabué', 'pt-PT': 'Zimbabué', en: 'Zimbabwe', es: 'Zimbabue', fr: 'Zimbabwe', ar: 'زيمبابوي', zh: '津巴布韦', hi: 'ज़िम्बाब्वे', sw: 'Zimbabwe', ru: 'Зимбабве', de: 'Simbabwe' } },
   { code: 'KE', name: { 'pt-MZ': 'Quénia', 'pt-PT': 'Quénia', en: 'Kenya', es: 'Kenia', fr: 'Kenya', ar: 'كينيا', zh: '肯尼亚', hi: 'केन्या', sw: 'Kenya', ru: 'Кения', de: 'Kenia' } },
   { code: 'US', name: { 'pt-MZ': 'Estados Unidos', 'pt-PT': 'Estados Unidos', en: 'United States', es: 'Estados Unidos', fr: 'États-Unis', ar: 'الولايات المتحدة', zh: '美国', hi: 'संयुक्त राज्य अमेरिका', sw: 'Marekani', ru: 'США', de: 'Vereinigte Staaten' } },
   { code: 'ES', name: { 'pt-MZ': 'Espanha', 'pt-PT': 'Espanha', en: 'Spain', es: 'España', fr: 'Espagne', ar: 'إسبانيا', zh: '西班牙', hi: 'स्पेन', sw: 'Hispania', ru: 'Испания', de: 'Spanien' } },

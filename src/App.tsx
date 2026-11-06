@@ -29,6 +29,8 @@ import { ReportModal } from './components/ReportModal';
 import { TermsModal } from './components/TermsModal';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ReviewModal } from './components/ReviewModal';
+import { LocationPromptModal } from './components/LocationPromptModal';
+import { CountryChangeModal } from './components/CountryChangeModal';
 import { CheckCircle2, ShoppingCart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -47,7 +49,14 @@ const AppContent: React.FC = () => {
     setIsTermsModalOpen,
     termsModalMode,
     activeReviewTarget,
-    setActiveReviewTarget
+    setActiveReviewTarget,
+    isLocationPromptOpen,
+    allowLocationPermission,
+    denyLocationPermission,
+    countryChangePrompt,
+    confirmCountryChange,
+    dismissCountryChange,
+    isLocationDetecting
   } = useApp();
 
   const [minTimePassed, setMinTimePassed] = useState(false);
@@ -196,6 +205,26 @@ const AppContent: React.FC = () => {
           productId={activeReviewTarget.post?.id}
           productTitle={activeReviewTarget.post?.title}
           onClose={() => setActiveReviewTarget(null)}
+        />
+      )}
+
+      {/* Location Permission Prompt Modal */}
+      <LocationPromptModal
+        isOpen={isLocationPromptOpen}
+        onAllow={allowLocationPermission}
+        onDeny={denyLocationPermission}
+        loading={isLocationDetecting}
+      />
+
+      {/* Country & Currency Change Confirmation Modal */}
+      {countryChangePrompt && (
+        <CountryChangeModal
+          isOpen={Boolean(countryChangePrompt)}
+          countryName={countryChangePrompt.countryName}
+          currencyCode={countryChangePrompt.newCurrency}
+          onConfirm={confirmCountryChange}
+          onDismiss={dismissCountryChange}
+          loading={isLocationDetecting}
         />
       )}
 

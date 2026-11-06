@@ -23,7 +23,8 @@ export type CurrencyCode =
   | 'RUB' 
   | 'GBP' 
   | 'AOA' 
-  | 'CVE';
+  | 'CVE'
+  | 'TZS';
 
 export interface LanguageInfo {
   code: LanguageCode;

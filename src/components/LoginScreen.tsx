@@ -12,6 +12,7 @@ import {
   ShoppingCart 
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, POPULAR_COUNTRIES, LanguageCode } from '../i18n';
+import { deduceCountryFromTimezoneAndLocale } from '../services/locationService';
 
 export const LoginScreen: React.FC = () => {
   const { 
@@ -34,13 +35,14 @@ export const LoginScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
-  // Form states
+  // Form states with smart regional fallback
+  const initialRegional = deduceCountryFromTimezoneAndLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [location, setLocation] = useState('Maputo');
-  const [country, setCountry] = useState(preferredCountry || 'MZ');
+  const [location, setLocation] = useState(initialRegional.location || 'Maputo');
+  const [country, setCountry] = useState(preferredCountry || initialRegional.country || 'MZ');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handlePasswordResetSubmit = async (e: React.FormEvent) => {

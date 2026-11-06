@@ -21,7 +21,8 @@ import {
   FileText,
   Info,
   Ban,
-  ShoppingCart
+  ShoppingCart,
+  RefreshCw
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../data/seedData';
 
@@ -42,7 +43,13 @@ export const SettingsTab: React.FC = () => {
     deletePost,
     unblockUser,
     shops,
-    openShopDetail
+    openShopDetail,
+    autoLocationEnabled,
+    setAutoLocationEnabledState,
+    lastDetectedLocationText,
+    detectLocationManually,
+    isLocationDetecting,
+    formatRelativePostTime
   } = useApp();
 
   if (!user) return null;
@@ -215,7 +222,78 @@ export const SettingsTab: React.FC = () => {
         )}
       </section>
 
-      {/* 3. Minhas Lojas e Negócios */}
+      {/* 3. Localização & Moeda Automática */}
+      <section className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-none p-3.5 shadow-none space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-black dark:text-white" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-black dark:text-white">
+              Localização & Moeda Automática
+            </h2>
+          </div>
+          <span className="text-[10px] font-mono uppercase text-neutral-400">
+            GPS / Região
+          </span>
+        </div>
+
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          Atualiza automaticamente a tua morada, país e moeda sugerida com base no telemóvel.
+        </p>
+
+        {/* Toggle option */}
+        <div className="flex items-center justify-between p-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 rounded-none">
+          <div className="pr-3">
+            <p className="text-xs font-bold text-black dark:text-white">
+              Detetar localização automaticamente
+            </p>
+            <p className="text-[10px] text-neutral-500">
+              Verifica ao abrir o app e quando regressas ao ecrã principal
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAutoLocationEnabledState(!autoLocationEnabled)}
+            className={`w-11 h-6 flex items-center rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+              autoLocationEnabled ? 'bg-black dark:bg-white justify-end' : 'bg-neutral-300 dark:bg-neutral-700 justify-start'
+            }`}
+            title="Alternar deteção automática"
+          >
+            <span
+              className={`w-5 h-5 rounded-full bg-white dark:bg-black shadow-sm transform transition-transform`}
+            />
+          </button>
+        </div>
+
+        {/* Last detection text & Manual refresh button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+          <div className="min-w-0">
+            <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold">
+              Última deteção:
+            </p>
+            <p className="text-xs font-medium text-black dark:text-white truncate">
+              {lastDetectedLocationText || (user.location ? `${user.location}${user.country ? `, ${user.country}` : ''}` : 'Ainda não detetada')}
+            </p>
+            {user.locationUpdatedAt && (
+              <p className="text-[10px] text-neutral-400 mt-0.5">
+                Atualizado: {formatRelativePostTime(user.locationUpdatedAt)}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={detectLocationManually}
+            disabled={isLocationDetecting}
+            className="py-1 px-3 rounded-none bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 self-start sm:self-auto shrink-0"
+          >
+            <RefreshCw className={`w-3 h-3 ${isLocationDetecting ? 'animate-spin' : ''}`} />
+            <span>{isLocationDetecting ? 'A detetar...' : 'Atualizar agora'}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* 4. Minhas Lojas e Negócios */}
       <section className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-none p-3.5 shadow-none">
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-black dark:text-white">
