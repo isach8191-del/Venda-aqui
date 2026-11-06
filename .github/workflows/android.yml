@@ -28,7 +28,7 @@ jobs:
           java-version: 21
 
       - name: Instalar dependências
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Compilar aplicação Web (Vite)
         run: npx vite build --base=./
