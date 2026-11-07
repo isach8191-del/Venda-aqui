@@ -42,6 +42,11 @@ jobs:
           fi
           npx cap sync android
 
+      - name: Usar chave de assinatura fixa
+        run: |
+          mkdir -p ~/.android
+          cp android/app/debug.keystore ~/.android/debug.keystore
+
       - name: Gerar APK Android (Debug)
         working-directory: android
         run: |
